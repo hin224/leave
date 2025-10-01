@@ -1,0 +1,55 @@
+body {
+  font-family: sans-serif;
+  margin: 20px;
+}
+h1 {
+  font-size: 1.2em;
+  margin-bottom: 0.5em;
+}
+.form-row {
+  margin: 5px 0;
+}
+.form-row label {
+  min-width: 60px;
+  margin-right: 5px;
+  display: inline-block;
+  text-align: right;
+}
+.form-row input, .form-row select {
+  padding: 3px;
+  margin-right: 20px;
+}
+#studentName {
+  width: 150px;
+}
+#studentClass {
+  width: 80px;
+}
+#studentEnName {
+  width: 150px;
+}
+#leavePeriod {
+  width: 160px;
+}
+#activityName {
+  width: 200px;
+}
+#activityPlace {
+  width: 200px;
+}
+.conflict-info {
+  color: #c00;
+  font-weight: bold;
+  margin: 5px 0;
+}
+.btn-row button {
+  margin-right: 10px;
+}
+#outputSection textarea {
+  width: 100%;
+  height: 80px;
+  margin-bottom: 5px;
+}
+#outputSection h3 {
+  margin: 0.5em 0 0.2em;
+}

@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>学生上课外出申请（公假外出）—多日期无地点版 · 增强</title>
+<link rel="icon" href="data:;base64,=">
+<style>
+  :root{ --blue:#1a73e8;--muted:#777;--danger:#c62828;--border:#e5e5e5; }
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;line-height:1.5}
+  h1{font-size:20px;margin:6px 0 12px}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .tab{padding:6px 10px;border:1px solid #ccc;border-radius:8px;cursor:pointer}
+  .tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .card{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;background:#fff}
+  label{display:inline-block;min-width:88px}
+  input,select,button,textarea{padding:6px 8px;border:1px solid #cfcfcf;border-radius:6px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0}
+  .grow{flex:1 1 220px}
+  .btn{background:var(--blue);color:#fff;border:none;cursor:pointer}
+  .btn.secondary{background:#555}
+  .btn.ghost{background:#fff;color:#333;border:1px solid #ccc}
+  .muted{color:var(--muted)}
+  .danger{color:var(--danger)}
+  .list{border:1px dashed #ddd;border-radius:6px;padding:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid #ddd;border-radius:999px;padding:2px 8px;background:#f8f8f8}
+  .chip button{margin-left:6px}
+  .suggest{position:relative}
+  .suggest-list{position:absolute;z-index:20;background:#fff;border:1px solid #ddd;border-radius:6px;width:100%;max-height:220px;overflow:auto}
+  .suggest-item{padding:6px 8px;cursor:pointer}
+  .suggest-item:hover{background:#f3f6fc}
+  .suggest-item.active{background:#eee}
+  #ghostNameHint{color:#aaa;font-size:12px;margin-top:2px}
+  textarea{width:100%;min-height:100px}
+  table{width:100%;border-collapse:collapse}
+  th,td{border-bottom:1px solid #efefef;padding:6px 8px;text-align:left;vertical-align:top}
+  th{position:sticky;top:0;background:#fafafa;z-index:1}
+  .nowrap{white-space:nowrap}
+  .pill{display:inline-block;padding:2px 8px;border:1px solid #ccc;border-radius:999px;font-size:12px}
+  .scroll-x{overflow:auto}
+
+  /* 移动端优化 */
+  @media (max-width:640px){
+    label{min-width:72px}
+    .row{gap:8px}
+    input,select,button,textarea{font-size:16px}
+    th,td{padding:8px}
+    .tabs{position:sticky;top:0;background:#fff;padding-top:6px;z-index:10}
+  }
+  /* —— 时间表格（监看-时间表模式） —— */
+  .ttable{border:1px solid #eee;border-radius:8px;overflow:auto}
+  .ttable table{min-width:1100px}
+  .ttable th,.ttable td{border:1px solid #efefef}
+  .ttable thead th{position:sticky;top:0;background:#fafafa;z-index:2}
+  .ttable tbody th{position:sticky;left:0;background:#fafafa;z-index:1}
+  .cell{min-width:180px}
+  .cell .slot{margin-bottom:6px}
+  .cell .slot-title{font-weight:600}
+  .cell .students{font-size:12px;color:#555}
+</style>
+</head>
+<body>
+
+<h1>学生上课外出申请（公假外出）—多日期无地点版 · 增强</h1>
+
+<div class="tabs">
+  <div class="tab active" id="tab-apply">申请</div>
+  <div class="tab" id="tab-records">记录 / 查看</div>
+  <div class="tab" id="tab-monitor">监看</div>
+</div>
+
+<!-- 申请页 -->
+<div id="page-apply">
+  <div class="card">
+    <div class="row">
+      <div class="grow">
+        <label>上传学生CSV：</label>
+        <input type="file" id="fileStudents" accept=".csv"/>
+      </div>
+      <div class="grow">
+        <label>上传课表CSV（可选）：</label>
+        <input type="file" id="fileSchedule" accept=".csv"/>
+      </div>
+    </div>
+    <div class="muted">学生CSV需包含：<span class="pill">学号</span> <span class="pill">中文姓名</span> <span class="pill">英文姓名</span> <span class="pill">班级</span>；可选：<span class="pill">拼音</span>、<span class="pill">英文分组</span>、<span class="pill">马来文分组</span>、<span class="pill">数学分组</span>（h/i/f）。</div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="grow">
+        <label>学号直达：</label>
+        <input id="idQuick" placeholder="输入学号后回车或点加入"/>
+        <button class="btn ghost" id="btnAddById">加入名单</button>
+      </div>
+      <div class="grow suggest">
+        <label>姓名模糊搜：</label>
+        <input id="nameCn" autocomplete="off" placeholder="中文/英文/拼音…"/>
+        <div id="suggestList" class="suggest-list" style="display:none;"></div>
+        <div id="ghostNameHint"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="grow">
+        <label>批量学号：</label>
+        <textarea id="idsBulk" placeholder="支持逗号、空格、换行分隔"></textarea>
+      </div>
+      <div class="grow">
+        <button class="btn" id="btnAddBulk">批量加入名单</button>
+        <button class="btn ghost" id="btnClearList">清空名单</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="grow">
+        <label>本次名单：</label>
+        <div id="chips" class="chips"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="grow">
+        <label>日期选择：</label>
+        <input type="date" id="applyDatePicker"/>
+        <input type="checkbox" id="autoAddDate" checked style="margin-left:6px"/> <span class="muted">选择后自动加入</span>
+        <div style="margin-top:6px"></div>
+        <label style="min-width:auto">起：</label><input type="date" id="applyDatePickerStart"/>
+        <label style="min-width:auto">止：</label><input type="date" id="applyDatePickerEnd"/>
+        <button class="btn ghost" id="btnAddRange">加入范围</button>
+        <div style="margin-top:6px"></div>
+        <button class="btn ghost" id="btnAddApplyDate">加入所选</button>
+        <div id="applyDateChips" class="chips" style="margin-top:6px"></div>
+      </div>
+      <div class="grow">
+        <label>时间段：</label>
+        <input id="period" placeholder="如：第3-4节 或 10:00-11:30"/>
+      </div>
+      <div class="grow">
+        <label>活动名称：</label>
+        <input id="activity" placeholder="如：全州排球赛"/>
+      </div>
+    </div>
+    <div id="conflict" class="muted"></div>
+    <div class="row">
+      <button class="btn" id="btnGenText">生成中英文本</button>
+      <button class="btn ghost" id="btnSave">保存到记录</button>
+    </div>
+  </div>
+
+  <div id="output" class="card" style="display:none;">
+    <div class="row"><strong>中文通知：</strong></div>
+    <textarea id="outCn" readonly></textarea>
+    <div class="row"><strong>English Letter:</strong></div>
+    <textarea id="outEn" readonly></textarea>
+    <div class="row">
+      <button class="btn ghost" id="btnCopyCn">复制中文TXT</button>
+      <button class="btn ghost" id="btnCopyEn">复制英文TXT</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div><strong>提交前简单密码</strong>：<span class="pill">123456</span></div>
+    <div class="row">
+      <label>密码：</label><input type="password" id="pwd"/>
+    </div>
+  </div>
+</div>
+
+<!-- 记录/查看页 -->
+<div id="page-records" style="display:none;">
+  <div class="card">
+    <div class="row">
+      <div class="grow">
+        <label>按日期筛选：</label>
+        <textarea id="fltDates" placeholder="支持多日期：2025-09-25, 2025-09-26"></textarea>
+      </div>
+      <div class="grow">
+        <label>按班级筛选：</label>
+        <input id="fltClass" placeholder="如：J1Z（留空=全部）"/>
+      </div>
+      <div class="grow">
+        <label>快速搜索：</label>
+        <input id="fltQuery" placeholder="学号/中文/英文 关键词"/>
+      </div>
+      <div class="grow">
+        <button class="btn" id="btnExport">导出筛选CSV</button>
+        <button class="btn ghost" id="btnBulkDelete">按筛选批量删除</button>
+        <button class="btn secondary" id="btnClear">清空全部记录</button>
+      </div>
+    </div>
+  </div>
+  <div class="card scroll-x">
+    <table>
+      <thead>
+        <tr>
+          <th class="nowrap">日期</th>
+          <th class="nowrap">时间段</th>
+          <th>学号</th>
+          <th>班级</th>
+          <th>中文姓名</th>
+          <th>英文姓名</th>
+          <th>活动</th>
+          <th class="nowrap">操作</th>
+        </tr>
+      </thead>
+      <tbody id="tblBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 监看页 -->
+<div id="page-monitor" style="display:none;">
+  <div class="card">
+    <div class="row">
+      <div class="grow">
+        <label>日期选择：</label>
+        <input type="date" id="monDatePicker"/>
+        <input type="checkbox" id="autoAddMonDate" checked style="margin-left:6px"/> <span class="muted">选择后自动加入</span>
+        <div style="margin-top:6px"></div>
+        <label style="min-width:auto">起：</label><input type="date" id="monDatePickerStart"/>
+        <label style="min-width:auto">止：</label><input type="date" id="monDatePickerEnd"/>
+        <button class="btn ghost" id="btnAddMonRange">加入范围</button>
+        <div style="margin-top:6px"></div>
+        <button class="btn ghost" id="btnAddMonDate">加入所选</button>
+        <div id="monDateChips" class="chips" style="margin-top:6px"></div>
+      </div>
+      <div class="grow">
+        <label>老师筛选：</label>
+        <select id="monTeacher"><option value="">（全部老师）</option></select>
+      </div>
+      <div class="grow">
+        <label>班级筛选：</label>
+        <select id="monClass"><option value="">（全部班级）</option></select>
+      </div>
+      <div class="grow">
+        <label>显示模式：</label>
+        <select id="monMode">
+          <option value="table">表格</option>
+          <option value="cards">卡片</option>
+          <option value="timetable">时间表</option>
+        </select>
+      </div>
+      <div class="grow">
+        <button class="btn" id="btnMonRefresh">刷新</button>
+        <button class="btn ghost" id="btnMonExport">导出当前视图CSV</button>
+      </div>
+    </div>
+    <div class="muted">说明：① 多日期可同时监看；② 初中（J…）英/马/数分组课严格按 h/i/f 精确匹配；③ 未提供课表将仅显示记录。</div>
+  </div>
+  <div class="card scroll-x" id="monResult"></div>
+</div>
+
+<script>
+/***** —— 全局变量 —— *****/
+const SIMPLE_PASSWORD='123456';
+let students=[];     // {id, cn, en, class, pinyin?, eng?, bm?, math?}
+let schedule=[];     // {class, weekday, period, subject, teacher, group?}
+let pickList=[];     // {id, cn, en, class}
+let applyDates=[];   // 申请多日期
+let monDates=[];     // 监看多日期
+
+/***** —— DOM 绑定 —— *****/
+// 申请区
+const idQuick=document.getElementById('idQuick');
+const btnAddById=document.getElementById('btnAddById');
+const idsBulk=document.getElementById('idsBulk');
+const btnAddBulk=document.getElementById('btnAddBulk');
+const btnClearList=document.getElementById('btnClearList');
+const chips=document.getElementById('chips');
+const nameCn=document.getElementById('nameCn');
+const suggestList=document.getElementById('suggestList');
+const ghostNameHint=document.getElementById('ghostNameHint');
+const applyDatePicker=document.getElementById('applyDatePicker');
+const autoAddDate=document.getElementById('autoAddDate');
+const applyDatePickerStart=document.getElementById('applyDatePickerStart');
+const applyDatePickerEnd=document.getElementById('applyDatePickerEnd');
+const btnAddRange=document.getElementById('btnAddRange');
+const btnAddApplyDate=document.getElementById('btnAddApplyDate');
+const applyDateChips=document.getElementById('applyDateChips');
+const periodInp=document.getElementById('period');
+const activityInp=document.getElementById('activity');
+const pwdInp=document.getElementById('pwd');
+const conflictDiv=document.getElementById('conflict');
+const outBox=document.getElementById('output');
+const outCn=document.getElementById('outCn');
+const outEn=document.getElementById('outEn');
+const btnCopyCn=document.getElementById('btnCopyCn');
+const btnCopyEn=document.getElementById('btnCopyEn');
+const fileStudents=document.getElementById('fileStudents');
+const fileSchedule=document.getElementById('fileSchedule');
+
+// 记录区
+const fltDates=document.getElementById('fltDates');
+const fltClass=document.getElementById('fltClass');
+const fltQuery=document.getElementById('fltQuery');
+const tblBody=document.getElementById('tblBody');
+const btnExport=document.getElementById('btnExport');
+const btnBulkDelete=document.getElementById('btnBulkDelete');
+const btnClear=document.getElementById('btnClear');
+
+// 监看区
+const monDatePicker=document.getElementById('monDatePicker');
+const autoAddMonDate=document.getElementById('autoAddMonDate');
+const monDatePickerStart=document.getElementById('monDatePickerStart');
+const monDatePickerEnd=document.getElementById('monDatePickerEnd');
+const btnAddMonRange=document.getElementById('btnAddMonRange');
+const btnAddMonDate=document.getElementById('btnAddMonDate');
+const monDateChips=document.getElementById('monDateChips');
+const monTeacher=document.getElementById('monTeacher');
+const monClass=document.getElementById('monClass');
+const monMode=document.getElementById('monMode');
+const monResult=document.getElementById('monResult');
+const btnMonRefresh=document.getElementById('btnMonRefresh');
+const btnMonExport=document.getElementById('btnMonExport');
+
+// —— 时间表（节次与时间常量） ——
+const PERIODS=[null,
+  {label:'第一节',time:'8:10-8:45'},
+  {label:'第二节',time:'8:45-9:20'},
+  {label:'第三节',time:'9:50-10:25'},
+  {label:'第四节',time:'10:25-11:00'},
+  {label:'第五节',time:'11:10-11:45'},
+  {label:'第六节',time:'11:45-12:20'},
+  {label:'第七节',time:'12:50-13:25'},
+  {label:'第八节',time:'13:25-14:00'},
+  {label:'第九节',time:'14:10-14:45'},
+  {label:'第十节',time:'14:45-15:20'}
+];
+const PERIOD_NUMS=[1,2,3,4,5,6,7,8,9,10];
+const WEEKDAYS_EN=['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const WEEKDAY_CN={Monday:'星期一',Tuesday:'星期二',Wednesday:'星期三',Thursday:'星期四',Friday:'星期五'};
+
+/***** —— 工具函数 —— *****/
+const uniq=arr=>Array.from(new Set(arr));
+const trimLower=s=>(s||'').toString().trim().toLowerCase();
+const isJuniorClass=cls=>/^J/i.test(cls||'');
+const classCodeToCn=cls=>cls||'';
+
+function pickStudentGroupKey(subject){
+  const s=(subject||'').toLowerCase();
+  if(s.includes('英')||s.startsWith('en')) return 'eng';
+  if(s.includes('马')||s.includes('國文')||s.includes('国文')||s.includes('bahasa')||s.includes('bm')) return 'bm';
+  if(s.includes('数')||s.includes('math')) return 'math';
+  return '';
+}
+
+function parsePeriods(text){
+  const t=(text||'').trim();
+  if(!t) return [];
+  if(/\d{1,2}:\d{2}\s*-/.test(t)) return []; // 具体时间段：返回空数组表示“匹配所有课节外的具体时段”
+  let m=t.match(/第?\s*(\d+)\s*(?:[—–-]\s*(\d+))?\s*节?/);
+  if(m){ const a=+m[1], b=m[2]?+m[2]:a; const res=[]; for(let i=a;i<=b;i++) res.push(String(i)); return res; }
+  const nums=t.split(/[^0-9]+/).map(x=>x.trim()).filter(Boolean);
+  return nums.length?nums:[];
+}
+
+function weekdayName(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+}
+function fmtDateCn(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const y=d.getFullYear(), m=d.getMonth()+1, da=d.getDate();
+  const w=['日','一','二','三','四','五','六'][d.getDay()];
+  return `${y}年${m}月${da}日（周${w}）`;
+}
+function fmtDateEn(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const y=d.getFullYear();
+  const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  const da=d.getDate();
+  return `${m} ${da}, ${y}`;
+}
+function fmtDateYMDLocal(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const da=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${da}`;
+}
+
+/***** —— CSV —— *****/
+
+function csvParse(text){
+  if(!text) return [];
+  // 去掉 BOM
+  if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
+
+  // 只用前2行估计分隔符，避免内容里逗号太多误判
+  // 只用前2行估计分隔符，顺带统计中文逗号（，）
+const head2 = text.split(/\r?\n/).slice(0,2).join('\n');
+const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const cnt = (s,ch)=> (s.match(new RegExp(esc(ch), 'g'))||[]).length;
+
+let delim = ','; // 默认用英文逗号
+const cComma    = cnt(head2, ',');
+const cCComma   = cnt(head2, '，'); // 中文逗号
+const cSemi     = cnt(head2, ';');
+const cTab      = cnt(head2, '\t');
+
+// 选择出现次数最多的那个
+const pairs = [
+  [',',  cComma + cCComma],  // 把中文逗号也算到逗号阵营
+  [';',  cSemi],
+  ['\t', cTab]
+];
+pairs.sort((a,b)=> b[1]-a[1]);
+delim = pairs[0][0];
+
+// 如果判定成了中文逗号，后面统一当英文逗号处理
+if (delim === '，') delim = ',';
+
+
+  const rows=[]; let i=0, field='', row=[], quoted=false;
+  while(i<text.length){
+    const ch=text[i++];
+    if(quoted){
+      if(ch==='"'){
+        if(text[i]==='"'){ field+='"'; i++; } else { quoted=false; }
+      }else{
+        field+=ch;
+      }
+    }else{
+      if(ch==='"'){ quoted=true; }
+      else if(ch===delim){ row.push(field); field=''; }
+      else if(ch==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(ch==='\r'){ /* skip */ }
+      else { field+=ch; }
+    }
+  }
+  if(field!==''||row.length){ row.push(field); rows.push(row); }
+  // 过滤空行
+  return rows.filter(r=> r.some(x=> (x||'').toString().trim().length));
+}
+
+
+
+
+function normalizeHeader(h){
+  // 1) 预处理：去BOM、去空格(含全角)、转小写、统一括号分隔符
+  let s = (h || '').toString();
+  if (s.charCodeAt(0) === 0xFEFF) s = s.slice(1);
+  s = s.replace(/[\u3000\s]+/g, '').toLowerCase(); // 去所有空白（含全角空格）
+  s = s.replace(/[()（）\[\]【】]/g, '/');         // 括号统一成 '/'
+
+  // 2) 生成候选 token：原串 + 拆分（/、_、-）
+  const tokens = new Set(
+    [s]
+      .concat(s.split(/[\/_\-]+/).filter(Boolean))
+  );
+
+  const has = (arr) => {
+    // 命中策略：任意 token 包含任意关键字，或者整串包含关键字
+    return Array.from(tokens).some(t => arr.some(kw => t.includes(kw))) || arr.some(kw => s.includes(kw));
+  };
+
+  // —— ID（学号）——
+  // 典型：学号/學號/学生编号/编号/StudentID/StudentNo/ID
+  // 为避免把“班号”误识别，这里要求含“学/學生/生”再配“号/號/编号”等；或明确英文ID变体
+  if (
+    (has(['学号','學號','學生編號','学生编号','生編號','生编号','學生號碼','学生號碼','學生號','学生號','编号']))
+    || has(['studentid','studentno','student_no','stu_id','id'])
+  ) return 'id';
+
+ // 中文姓名：只匹配明确带“中文”的写法，别用泛化“姓名”
+if (has(['中文姓名','中文名','namecn','chinesename','cnname'])) return 'cn';
+
+// 英文姓名：匹配明确带“英文/english”的写法。不要用裸的 'name' 兜底
+if (has(['英文姓名','英文名','englishname','engname','nameen','english'])) return 'en';
+
+
+  // —— 班级 ——（班级/班級/班别/class/form/homeroom）
+  if (has(['班级','班級','班别','class','form','homeroom'])) return 'class';
+
+  // —— 拼音 ——（拼音/pinyin/pinying）
+  if (has(['拼音','pinyin','pinying'])) return 'pinyin';
+
+  // —— 英文分组 ——（英文分组/英语分组/englishgroup/enggroup/engstream/eng）
+  if (has(['英文分组','英文分組','英语分组','englishgroup','enggroup','engstream']) || tokens.has('eng')) return 'eng';
+
+  // —— 马来文分组 ——（马来文/国语/国文/bahasa/bmgroup/malaygroup/bm）
+  if (has(['马来文分组','馬來文分組','马来文','馬來文','国语','國語','国文','國文','bahasa','bmgroup','malaygroup']) || tokens.has('bm')) return 'bm';
+
+  // —— 数学分组 ——（数学分组/數學分組/mathgroup/mathematicsgroup/math）
+  if (has(['数学分组','數學分組','数学','數學','mathgroup','mathematicsgroup','mathematics']) || tokens.has('math')) return 'math';
+
+  // 回退：返回清洗后的原表头（上游会忽略不识别的列）
+  return s;
+}
+
+
+
+
+function loadStudentsFromCSV(text){
+  const rows=csvParse(text).filter(r=>r.some(x=>trimLower(x)));
+  if(!rows.length) return [];
+  const head=rows[0].map(normalizeHeader);
+  const idx={ id:head.indexOf('id'), cn:head.indexOf('cn'), en:head.indexOf('en'), cls:head.indexOf('class'), pinyin:head.indexOf('pinyin'), eng:head.indexOf('eng'), bm:head.indexOf('bm'), math:head.indexOf('math') };
+  const must=['id','cn','en','cls'];
+  if(must.some(k=>idx[k]===-1)){ alert('学生CSV缺少必需列：学号/中文姓名/英文姓名/班级'); return []; }
+  return rows.slice(1).map(r=>({
+    id:(r[idx.id]||'').trim(), cn:(r[idx.cn]||'').trim(), en:(r[idx.en]||'').trim(), class:(r[idx.cls]||'').trim(),
+    pinyin:idx.pinyin===-1?'':(r[idx.pinyin]||'').trim(), eng:idx.eng===-1?'':(r[idx.eng]||'').trim().toLowerCase(), bm:idx.bm===-1?'':(r[idx.bm]||'').trim().toLowerCase(), math:idx.math===-1?'':(r[idx.math]||'').trim().toLowerCase()
+  })).filter(s=>s.id&&s.cn&&s.en&&s.class);
+}
+
+function loadScheduleFromCSV(text){
+  const rows=csvParse(text).filter(r=>r.some(x=>trimLower(x)));
+  if(!rows.length) return [];
+  const head=rows[0].map(h=>trimLower(h));
+  const idx={ cls:head.findIndex(h=>h.includes('班')||h==='class'), weekday:head.findIndex(h=>h.includes('星期')||h==='weekday'||h==='week'), period:head.findIndex(h=>h.includes('节')||h.includes('period')), subject:head.findIndex(h=>h.includes('科目')||h.includes('subject')), teacher:head.findIndex(h=>h.includes('任课')||h.includes('老师')||h.includes('teacher')), group:head.findIndex(h=>h.includes('分组')||h.includes('group')) };
+  const need=['cls','weekday','period','subject','teacher'];
+  if(need.some(k=>idx[k]===-1)){ alert('课表CSV缺少必须列：班级/星期/节次/科目/任课老师'); return []; }
+  return rows.slice(1).map(r=>({
+    class:(r[idx.cls]||'').trim(), weekday:(r[idx.weekday]||'').trim(), period:String(r[idx.period]||'').trim(), subject:(r[idx.subject]||'').trim(), teacher:(r[idx.teacher]||'').trim(), group: idx.group===-1? '' : (r[idx.group]||'').trim().toLowerCase()
+  })).filter(x=>x.class&&x.weekday&&x.period);
+}
+
+// —— 新增：通用文件读取（自动识别 UTF-8/UTF-16）——
+async function readFileTextAuto(file){
+  // 先读 ArrayBuffer，再尝试 UTF-8，如果含大量 \u0000 则用 UTF-16LE/BE
+  const buf = await file.arrayBuffer();
+  let text = new TextDecoder('utf-8', {fatal:false}).decode(new Uint8Array(buf));
+  const nulRate = (text.match(/\u0000/g)||[]).length / Math.max(1,text.length);
+  if (nulRate > 0.01) {
+    try {
+      text = new TextDecoder('utf-16le', {fatal:false}).decode(new Uint8Array(buf));
+    } catch(e) {
+      text = new TextDecoder('utf-16be', {fatal:false}).decode(new Uint8Array(buf));
+    }
+  }
+  return text;
+}
+
+// —— 替换：加载CSV —— 
+fileStudents.addEventListener('change', async ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  try{
+    const raw = await readFileTextAuto(f);
+    students = loadStudentsFromCSV(raw);
+    if(!students.length) {
+      console.warn('[Students CSV] 原始前几行：', raw.slice(0,300));
+      alert('学生CSV读取成功，但未识别到有效数据。\n请检查列名/编码/分隔符，或把文件发我。');
+    } else {
+      alert(`学生名单已加载：${students.length} 人`);
+    }
+  }catch(e){
+    alert('学生CSV读取失败：'+e.message);
+  }
+});
+
+fileSchedule.addEventListener('change', async ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  try{
+    const raw = await readFileTextAuto(f);
+    schedule = loadScheduleFromCSV(raw);
+    if(!schedule.length){
+      console.warn('[Schedule CSV] 原始前几行：', raw.slice(0,300));
+      alert('课表CSV读取成功，但未识别到有效数据。\n请检查列名/编码/分隔符。');
+    }else{
+      alert(`课表已加载：${schedule.length} 条`);
+      buildTeacherClassSelects();
+    }
+  }catch(e){
+    alert('课表CSV读取失败：'+e.message);
+  }
+});
+/***** —— 名单 chips —— *****/
+function renderChips(){ chips.innerHTML=pickList.map(s=>`<span class="chip">${s.id} ${s.cn}（${s.en}）<button class="btn ghost" data-id="${s.id}">x</button></span>`).join(''); updateConflict(); }
+chips.addEventListener('click',e=>{ const b=e.target.closest('button[data-id]'); if(!b) return; const id=b.getAttribute('data-id'); pickList=pickList.filter(x=>x.id!==id); renderChips(); });
+
+function addById(id){ id=(id||'').trim(); if(!id){ alert('请输入学号'); return; } const s=students.find(x=>x.id===id); if(!s){ alert('未找到该学号'); return; } if(!pickList.some(x=>x.id===s.id)) pickList.push({id:s.id, cn:s.cn, en:s.en, class:s.class}); renderChips(); }
+btnAddById.onclick=()=>addById(idQuick.value);
+idQuick.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addById(idQuick.value); }});
+
+btnAddBulk.onclick=()=>{
+  const raw=idsBulk.value||''; const ids=raw.split(/[\s,，;；]+/).map(x=>x.trim()).filter(Boolean);
+  if(!ids.length){ alert('请先输入学号'); return; }
+  let added=0, miss=[]; ids.forEach(id=>{ const s=students.find(x=>x.id===id); if(!s){ miss.push(id); return; } if(!pickList.some(x=>x.id===s.id)){ pickList.push({id:s.id,cn:s.cn,en:s.en,class:s.class}); added++; } });
+  renderChips(); alert(`加入 ${added} 人${miss.length?('；未找到：'+miss.join(' ')):''}`);
+};
+btnClearList.onclick=()=>{ pickList=[]; renderChips(); };
+
+/***** —— 模糊搜索（Tab 预选、Enter 加入） —— *****/
+let candidates=[]; let highlightIndex=-1;
+function renderSuggest(list){
+  candidates=list;
+  if(!list.length){ suggestList.style.display='none'; highlightIndex=-1; if(ghostNameHint) ghostNameHint.textContent=''; return; }
+  if(highlightIndex<0||highlightIndex>=list.length) highlightIndex=0;
+  suggestList.innerHTML=list.map((s,i)=>`<div class="suggest-item ${i===highlightIndex?'active':''}" data-idx="${i}" data-id="${s.id}">${s.id} / ${s.cn} / ${s.en} / ${s.class} ${s.pinyin?(' / '+s.pinyin):''}</div>`).join('');
+  suggestList.style.display='block';
+  const g=list[highlightIndex]; if(ghostNameHint){ ghostNameHint.textContent=g?`预选：${g.id} / ${g.cn} / ${g.en} / ${g.class}`:''; }
+}
+function moveHighlight(delta){ if(!candidates.length) return; highlightIndex=(highlightIndex+delta+candidates.length)%candidates.length; renderSuggest(candidates); }
+
+nameCn.addEventListener('input',()=>{
+  const q=trimLower(nameCn.value); if(!q){ renderSuggest([]); return; }
+  const list=students.filter(s=>{ const hay=[s.cn,s.en,s.pinyin].map(trimLower).join(' '); return hay.includes(q) || q.split(/\s+/).every(part=>hay.includes(part)); }).slice(0,30);
+  renderSuggest(list);
+});
+nameCn.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){ e.preventDefault(); moveHighlight(e.shiftKey?-1:1); return; }
+  if(e.key==='ArrowDown'){ e.preventDefault(); moveHighlight(1); return; }
+  if(e.key==='ArrowUp'){ e.preventDefault(); moveHighlight(-1); return; }
+  if(e.key==='Enter'){
+    e.preventDefault(); const it=candidates[highlightIndex];
+    if(it){ addById(it.id); nameCn.value=''; suggestList.style.display='none'; candidates=[]; highlightIndex=-1; nameCn.focus(); }
+    else if(idQuick.value){ addById(idQuick.value); nameCn.focus(); }
+    return;
+  }
+  if(e.key==='Escape'){ renderSuggest([]); return; }
+});
+
+suggestList.addEventListener('click',e=>{ const div=e.target.closest('.suggest-item'); if(!div) return; const id=div.getAttribute('data-id'); const s=students.find(x=>x.id===id); if(!s) return; addById(s.id); nameCn.value=''; suggestList.style.display='none'; candidates=[]; highlightIndex=-1; nameCn.focus(); });
+
+document.addEventListener('click',e=>{ if(!suggestList.contains(e.target) && e.target!==nameCn){ suggestList.style.display='none'; }});
+
+/***** —— 多日期 chips —— *****/
+btnAddApplyDate.onclick=()=>{ const d=applyDatePicker.value; if(!d) return; if(!applyDates.includes(d)){ applyDates.push(d); applyDates.sort(); } renderApplyDateChips(); };
+applyDatePicker.addEventListener('change',()=>{ if(autoAddDate && autoAddDate.checked){ const d=applyDatePicker.value; if(!d) return; if(!applyDates.includes(d)){ applyDates.push(d); applyDates.sort(); } renderApplyDateChips(); }});
+btnAddRange.onclick=()=>{
+  const a=applyDatePickerStart.value, b=applyDatePickerEnd.value; if(!a||!b){ alert('请先选择起止日期'); return; }
+  const start=new Date(a+'T00:00:00'), end=new Date(b+'T00:00:00');
+  if(start>end){ alert('起始不能晚于结束'); return; }
+  const cur=new Date(start);
+  while(cur<=end){ const d=fmtDateYMDLocal(cur); if(!applyDates.includes(d)) applyDates.push(d); cur.setDate(cur.getDate()+1); }
+  applyDates.sort(); renderApplyDateChips();
+};
+function renderApplyDateChips(){ applyDateChips.innerHTML=applyDates.map(d=>`<span class="chip">${d}<button class="btn ghost" data-d="${d}">x</button></span>`).join(''); updateConflict(); }
+applyDateChips.addEventListener('click',e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; const d=b.getAttribute('data-d'); applyDates=applyDates.filter(x=>x!==d); renderApplyDateChips(); });
+
+/***** —— 冲堂匹配（按第一个日期提示） —— *****/
+function updateConflict(){
+  conflictDiv.textContent='';
+  if(!schedule.length || !applyDates.length || !periodInp.value || !pickList.length) return;
+  const wd=weekdayName(applyDates[0]);
+  if(wd==='Sunday'||wd==='Saturday'){ conflictDiv.textContent='周末/假日'; return; }
+  const ps=parsePeriods(periodInp.value);
+  if(!ps.length){ conflictDiv.textContent='为具体时刻，未匹配课节。'; return; }
+  const lines=[];
+  pickList.forEach(sel=>{
+    const stu=students.find(x=>x.id===sel.id); if(!stu) return;
+    const hits=schedule.filter(x=> x.class===sel.class && x.weekday===wd && ps.includes(String(x.period)));
+    const filtered=hits.filter(h=>{ const gkey=pickStudentGroupKey(h.subject); if(isJuniorClass(sel.class) && gkey && h.group){ return (stu[gkey]||'').toLowerCase()===h.group.toLowerCase(); } return true; });
+    if(filtered.length){ const msg=filtered.map(h=>`第${h.period}节 ${h.subject}（${h.teacher}${h.group?('，'+h.group.toUpperCase()+'组'):''}）`).join('，'); lines.push(`${sel.cn}（${sel.class}）：${msg}`); }
+  });
+  conflictDiv.innerHTML = lines.length ? `<span class="danger">冲堂课程（已按分组精准匹配）：</span>${lines.join('；')}` : '所选时间段无对应课程。';
+}
+periodInp.oninput=updateConflict;
+
+/***** —— 文本生成（同时写入记录） —— *****/
+function getAllRecords(){ return JSON.parse(localStorage.getItem('leave_records')||'[]'); }
+function setAllRecords(a){ localStorage.setItem('leave_records', JSON.stringify(a)); }
+
+function buildTexts(){
+  if(!pickList.length){ alert('请先把学生加入“本次名单”。'); return null; }
+  if(!applyDates.length){ alert('请至少加入一个申请日期'); return null; }
+  if(!periodInp.value){ alert('请填写时间段'); return null; }
+  if(!activityInp.value){ alert('请填写活动名称'); return null; }
+  if(pwdInp.value!==SIMPLE_PASSWORD){ alert('密码不正确'); return null; }
+
+  const periodText=periodInp.value.trim();
+  const blocksCn=[], blocksEn=[];
+  applyDates.forEach(d=>{
+    const dateCn=fmtDateCn(d), dateEn=fmtDateEn(d);
+    const listCn=pickList.map((s,i)=>`${i+1}. ${s.id} ${classCodeToCn(s.class)} ${s.cn}（${s.en}）`).join('\n');
+    const listEn=pickList.map((s,i)=>`${i+1}. ${s.en} (${s.cn}), Class ${classCodeToCn(s.class)}, ID ${s.id}`).join('\n');
+
+    // per-date 冲堂
+    const wd=weekdayName(d), ps=parsePeriods(periodText);
+    let missCn='', missEn='';
+    if(schedule.length && ps.length){
+      const lines=[]; pickList.forEach(sel=>{
+        const stu=students.find(x=>x.id===sel.id); if(!stu) return;
+        const hits=schedule.filter(x=> x.class===sel.class && x.weekday===wd && ps.includes(String(x.period)));
+        const filtered=hits.filter(h=>{ const gkey=pickStudentGroupKey(h.subject); if(isJuniorClass(sel.class) && gkey && h.group){ return (stu[gkey]||'').toLowerCase()===h.group.toLowerCase(); } return true; });
+        if(filtered.length){ const msg=filtered.map(h=>`第${h.period}节 ${h.subject}（${h.teacher}${h.group?('，'+h.group.toUpperCase()+'组'):''}）`).join('，'); lines.push(`${sel.cn}（${sel.class}）：${msg}`); }
+      });
+      missCn=lines.join('；');
+      if(missCn){
+        const subjMap={"语文":"Chinese","英语":"English","数学":"Mathematics","科学":"Science","历史":"History","地理":"Geography","美术":"Art","体育":"P.E."};
+        missEn=missCn.split('；').map(seg=>{
+          const m=seg.match(/^(.*?)(：)(.+)$/); if(!m) return seg;
+          const person=m[1], rest=m[3];
+          const parts=rest.split('，').map(p=>{
+            const mm=p.match(/^第(\d+)节\s*(\S+)（(.+?)）$/); if(!mm) return p;
+            const pno=mm[1], subj=mm[2], t=mm[3];
+            return `Period ${pno} ${(subjMap[subj]||subj)} (${t})`;
+          }).join(', ');
+          return `${person}: ${parts}`;
+        }).join(' ; ');
+      }
+    }
+
+    const cn=`校长、老师们好：\n本校学生拟于【${dateCn}】在【${periodText}】上课外出，前往参加【${activityInp.value.trim()}】。\n\n名单：\n${listCn}\n\n${missCn?`请假期间冲堂课程：${missCn}。\n`:''}如有不便，敬请见谅。\n\n联课处\n日期：${dateCn}`;
+
+    let periodEn=periodText; if(/第.*节/.test(periodEn)){ periodEn='period '+periodEn.replace(/[第节]/g,'').replace('-', '–'); }
+    const en=`Dear Principal and Teachers,\n\nThe following students will be officially released from class on ${dateEn}, during ${periodEn}, to participate in "${activityInp.value.trim()}". \n\nList:\n${listEn}\n\n${missEn?`Classes missed: ${missEn}.\n`:''}We apologize for any inconvenience caused.\n\nCo-Curricular Department\nDate: ${dateEn}`;
+
+    blocksCn.push(cn); blocksEn.push(en);
+  });
+
+  // 写入记录（每个日期 × 每个学生）
+  const all=getAllRecords(); const base={ period:periodText, activity:activityInp.value.trim(), ts:Date.now() };
+  applyDates.forEach(d=>{ pickList.forEach(s=>{ all.push({ date:d, id:s.id, class:s.class, name_cn:s.cn, name_en:s.en, ...base }); }); });
+  setAllRecords(all);
+
+  return { cn: blocksCn.join('\n\n'+ '——'.repeat(20) +'\n\n'), en: blocksEn.join('\n\n'+ '—'.repeat(40) +'\n\n') };
+}
+
+document.getElementById('btnGenText').onclick=()=>{
+  const t=buildTexts(); if(!t) return;
+  outBox.style.display='block'; outCn.value=t.cn; outEn.value=t.en;
+};
+
+document.getElementById('btnSave').onclick=()=>{
+  const t=buildTexts(); if(!t) return; // 生成时已写入
+  alert(`已保存 ${pickList.length * applyDates.length} 条记录到“记录/查看”与“监看”可用。`);
+};
+
+btnCopyCn.onclick=async()=>{ try{ await navigator.clipboard.writeText(outCn.value||''); alert('中文文本已复制'); }catch(e){ alert('复制失败：'+e.message); } };
+btnCopyEn.onclick=async()=>{ try{ await navigator.clipboard.writeText(outEn.value||''); alert('English text copied'); }catch(e){ alert('Copy failed: '+e.message); } };
+
+/***** —— 记录页（筛选、导出、批删） —— *****/
+function parseDatesMulti(text){ return (text||'').split(/[^0-9-]+/).map(s=>s.trim()).filter(Boolean); }
+function getFilteredRecords(){
+  const all=getAllRecords();
+  const dates=parseDatesMulti(fltDates.value);
+  const cls=(fltClass.value||'').trim();
+  const q=trimLower(fltQuery.value||'');
+  return all.filter(r=> (dates.length? dates.includes(r.date):true)
+    && (cls? r.class===cls:true)
+    && (q? (r.id.includes(q)||trimLower(r.name_cn).includes(q)||trimLower(r.name_en).includes(q)):true));
+}
+function refreshTable(){
+  const list=getFilteredRecords().sort((a,b)=> a.date.localeCompare(b.date) || a.ts-b.ts);
+  tblBody.innerHTML=list.map((r,i)=>`
+    <tr>
+      <td class="nowrap">${r.date}</td>
+      <td class="nowrap">${r.period}</td>
+      <td>${r.id}</td>
+      <td>${r.class}</td>
+      <td>${r.name_cn}</td>
+      <td>${r.name_en}</td>
+      <td>${r.activity}</td>
+      <td><button class="btn ghost" data-idx="${i}">删除</button></td>
+    </tr>
+  `).join('');
+}
+
+tblBody.addEventListener('click',e=>{
+  const btn=e.target.closest('button[data-idx]'); if(!btn) return; const idx=+btn.getAttribute('data-idx');
+  const all=getAllRecords(); const filtered=getFilteredRecords().sort((a,b)=> a.date.localeCompare(b.date) || a.ts-b.ts);
+  const target=filtered[idx]; if(!target) return;
+  const origIndex=all.findIndex(r=> r.date===target.date && r.id===target.id && r.ts===target.ts);
+  if(origIndex>-1){ all.splice(origIndex,1); setAllRecords(all); refreshTable(); }
+});
+
+[fltDates,fltClass,fltQuery].forEach(el=> el.addEventListener('input',refreshTable));
+
+btnExport.onclick=()=>{
+  const list=getFilteredRecords(); if(!list.length){ alert('筛选结果为空'); return; }
+  const header=['日期','时间段','学号','班级','中文姓名','英文姓名','活动'];
+  const lines=[header.join(',')].concat(list.map(r=>[ r.date,r.period,r.id,r.class,r.name_cn,r.name_en,r.activity ].map(s=>`"${(s||'').replace(/"/g,'""')}"`).join(',')));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='外出申请记录_筛选.csv'; a.click();
+};
+
+btnBulkDelete.onclick=()=>{
+  const list=getFilteredRecords(); if(!list.length){ alert('当前筛选为空，无可删记录'); return; }
+  if(!confirm(`确定删除当前筛选的 ${list.length} 条记录？此操作不可恢复。`)) return;
+  const all=getAllRecords();
+  const rest=all.filter(r=> !list.some(x=> x.date===r.date && x.id===r.id && x.ts===r.ts));
+  setAllRecords(rest); refreshTable(); alert('已按筛选批量删除。');
+};
+
+btnClear.onclick=()=>{ if(confirm('确认清空所有记录？')){ localStorage.removeItem('leave_records'); refreshTable(); }};
+
+/***** —— 监看页（自动刷新 + 导出） —— *****/
+btnAddMonDate.onclick=()=>{ const d=monDatePicker.value; if(!d) return; if(!monDates.includes(d)){ monDates.push(d); monDates.sort(); } renderMonDateChips(); buildMonitorView(); };
+monDatePicker.addEventListener('change',()=>{ if(autoAddMonDate && autoAddMonDate.checked){ const d=monDatePicker.value; if(!d) return; if(!monDates.includes(d)){ monDates.push(d); monDates.sort(); } renderMonDateChips(); buildMonitorView(); }});
+btnAddMonRange.onclick=()=>{
+  const a=monDatePickerStart.value, b=monDatePickerEnd.value; if(!a||!b){ alert('请先选择监看起止日期'); return; }
+  const start=new Date(a+'T00:00:00'), end=new Date(b+'T00:00:00');
+  if(start>end){ alert('起始不能晚于结束'); return; }
+  const cur=new Date(start);
+  while(cur<=end){ const d=fmtDateYMDLocal(cur); if(!monDates.includes(d)) monDates.push(d); cur.setDate(cur.getDate()+1); }
+  monDates.sort(); renderMonDateChips(); buildMonitorView();
+};
+function renderMonDateChips(){ monDateChips.innerHTML=monDates.map(d=>`<span class="chip">${d}<button class="btn ghost" data-d="${d}">x</button></span>`).join(''); }
+monDateChips.addEventListener('click',e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; const d=b.getAttribute('data-d'); monDates=monDates.filter(x=>x!==d); renderMonDateChips(); buildMonitorView(); });
+
+monTeacher.addEventListener('change',buildMonitorView);
+monClass.addEventListener('change',buildMonitorView);
+monMode.addEventListener('change',buildMonitorView);
+btnMonRefresh.onclick=buildMonitorView;
+
+function buildTeacherClassSelects(){
+  const tset=new Set(schedule.map(x=>x.teacher).filter(Boolean)); const tarr=Array.from(tset).sort(); const curT=monTeacher.value;
+  monTeacher.innerHTML='<option value="">（全部老师）</option>'+tarr.map(t=>`<option>${t}</option>`).join(''); if(tarr.includes(curT)) monTeacher.value=curT;
+  const cset=new Set(schedule.map(x=>x.class).filter(Boolean)); const carr=Array.from(cset).sort(); const curC=monClass.value;
+  monClass.innerHTML='<option value="">（全部班级）</option>'+carr.map(c=>`<option>${c}</option>`).join(''); if(carr.includes(curC)) monClass.value=curC;
+}
+
+function recordMatchesSlot(rec, slot){
+  if(rec.class!==slot.class) return false;
+  const gkey=pickStudentGroupKey(slot.subject);
+  if(isJuniorClass(slot.class) && gkey && slot.group){
+    const stu=students.find(x=>x.id===rec.id && x.class===rec.class);
+    if(!(stu && (stu[gkey]||'').toLowerCase()===slot.group.toLowerCase())) return false;
+  }
+  const ps=parsePeriods(rec.period); if(!ps.length) return true; // 具体时段
+  return ps.includes(String(slot.period));
+}
+
+function buildMonitorRowsForDate(d){
+  const wd=weekdayName(d);
+  const recs=getAllRecords().filter(r=>r.date===d);
+
+  if(!schedule.length){
+    return recs.map(r=>({
+      date:d, period:r.period||'', class:r.class, group:'',
+      subject:'', teacher:'', students:`${r.name_cn}（${r.name_en}）`
+    }));
+  }
+
+  let slots=schedule.filter(x=>x.weekday===wd);
+  if(monTeacher.value) slots=slots.filter(x=>x.teacher===monTeacher.value);
+  if(monClass.value)   slots=slots.filter(x=>x.class===monClass.value);
+  slots.sort((a,b)=> a.class.localeCompare(b.class) || (+a.period - +b.period));
+
+  const rows=[];
+  slots.forEach(s=>{
+    const matched=recs.filter(r=> recordMatchesSlot(r,s));
+    const listText=matched.length ? matched.map(m=>`${m.name_cn}（${m.name_en}）`).join('，') : '';
+    rows.push({
+      date:d, period:`第${s.period}节`, class:s.class,
+      group:(s.group? s.group.toUpperCase()+'组' : ''), subject:s.subject,
+      teacher:s.teacher, students:listText
+    });
+  });
+
+  // ← 这里是关键：去掉 some(...) 里的那个多余分号
+  const orphan=recs.filter(r=>{
+    const ps=parsePeriods(r.period);
+    if(!ps.length) return true;
+    return !slots.some(s => s.class===r.class && s.weekday===wd && ps.includes(String(s.period)));
+  });
+
+  orphan.forEach(r=>{
+    rows.push({
+      date:d, period:r.period, class:r.class, group:'',
+      subject:'（无课表）', teacher:'', students:`${r.name_cn}（${r.name_en}）`
+    });
+  });
+
+  return rows;
+}
+
+
+function buildMonitorView(){
+  monResult.innerHTML='';
+  if(!monDates.length){ monResult.innerHTML='<div class="muted">请先加入至少一个日期。</div>'; return; }
+  let allRows=[]; monDates.forEach(d=>{ allRows=allRows.concat(buildMonitorRowsForDate(d)); });
+
+  if(monMode.value==='timetable'){ buildMonitorTimetable(); return; }
+
+  if(monMode.value==='cards'){
+    const html=allRows.map(r=>`<div class="list" style="margin-bottom:8px;">
+      <div><strong>${r.date}</strong>　${r.period}　${r.class} ${r.group?`（${r.group}）`:''}　${r.subject}　<span class="muted">任课：${r.teacher||'—'}</span></div>
+      <div>外出学生：${r.students||'（无）'}</div>
+    </div>`).join('');
+    monResult.innerHTML=html || '<div class="muted">无匹配记录。</div>';
+    return;
+  }
+
+  const header=['日期','节次/时间','班级','分组','科目','任课老师','外出学生'];
+  const rowsHtml=allRows.map(r=>`<tr>
+    <td class="nowrap">${r.date}</td>
+    <td class="nowrap">${r.period||'—'}</td>
+    <td>${r.class||'—'}</td>
+    <td>${r.group||'—'}</td>
+    <td>${r.subject||'—'}</td>
+    <td>${r.teacher||'—'}</td>
+    <td>${r.students||'（无）'}</td>
+  </tr>`).join('');
+  monResult.innerHTML = `<div class="scroll-x"><table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml||'<tr><td colspan="7" class="muted">无匹配记录</td></tr>'}</tbody></table></div>`;
+}
+
+function buildMonitorTimetable(){
+  // 将所选日期按星期归类
+  const datesByWeekday={}; monDates.forEach(d=>{ const wd=weekdayName(d); if(!datesByWeekday[wd]) datesByWeekday[wd]=[]; datesByWeekday[wd].push(d); });
+  const headCols=['',''].concat(PERIOD_NUMS.map(p=>`${PERIODS[p].label}<br><small class="muted">${PERIODS[p].time}</small>`));
+  let html='<div class="ttable scroll-x"><table><thead><tr>'+headCols.map(h=>`<th class="nowrap">${h}</th>`).join('')+'</tr></thead><tbody>';
+  WEEKDAYS_EN.forEach(wd=>{
+    const dates=datesByWeekday[wd]||[];
+    const title=WEEKDAY_CN[wd];
+    html+=`<tr><th class="nowrap">${title}</th><td class="muted nowrap">${dates.join('<br>')}</td>`;
+    PERIOD_NUMS.forEach(p=>{
+      const cells=[];
+      let slots=schedule.filter(x=> x.weekday===wd && String(x.period)===String(p));
+      if(monTeacher.value) slots=slots.filter(x=>x.teacher===monTeacher.value);
+      if(monClass.value)   slots=slots.filter(x=>x.class===monClass.value);
+      const recs=getAllRecords().filter(r=> dates.includes(r.date));
+      slots.forEach(s=>{
+        const matched=recs.filter(r=> recordMatchesSlot(r,s));
+        const listText=matched.length ? matched.map(m=> `${m.name_cn}（${m.name_en}）`).join('，') : '';
+        const gtxt=s.group? `（${s.group.toUpperCase()}组）` : '';
+        cells.push(`<div class="slot"><div class="slot-title">${s.class}${gtxt} · ${s.subject}（${s.teacher}）</div><div class="students">${listText || '（无）'}</div></div>`);
+      });
+      html+=`<td class="cell">${cells.join('')||'<span class="muted">—</span>'}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  monResult.innerHTML=html;
+}
+
+btnMonExport.onclick=()=>{
+  if(!monDates.length){ alert('请先加入至少一个日期'); return; }
+  // 展平当前视图为 CSV 行（与当前筛选一致）
+  let lines=['日期,节次/时间,班级,分组,科目,任课老师,外出学生'];
+  monDates.forEach(d=>{
+    const rows=buildMonitorRowsForDate(d);
+    rows.forEach(r=>{
+      const arr=[r.date,r.period||'',r.class||'',r.group||'',r.subject||'',r.teacher||'',r.students||''];
+      lines.push(arr.map(s=>`"${(s||'').replace(/"/g,'""')}"`).join(','));
+    });
+  });
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='监看视图.csv'; a.click();
+};
+
+/***** —— Tab —— *****/
+const tabApply=document.getElementById('tab-apply');
+const tabRecords=document.getElementById('tab-records');
+const tabMonitor=document.getElementById('tab-monitor');
+const pageApply=document.getElementById('page-apply');
+const pageRecords=document.getElementById('page-records');
+const pageMonitor=document.getElementById('page-monitor');
+
+function setActiveTab(which){
+  [tabApply,tabRecords,tabMonitor].forEach(t=>t.classList.remove('active'));
+  [pageApply,pageRecords,pageMonitor].forEach(p=>p.style.display='none');
+  if(which==='apply'){ tabApply.classList.add('active'); pageApply.style.display='block'; }
+  if(which==='records'){ tabRecords.classList.add('active'); pageRecords.style.display='block'; refreshTable(); }
+  if(which==='monitor'){ tabMonitor.classList.add('active'); pageMonitor.style.display='block'; buildTeacherClassSelects(); buildMonitorView(); }
+}
+
+tabApply.onclick=()=>setActiveTab('apply');
+tabRecords.onclick=()=>setActiveTab('records');
+tabMonitor.onclick=()=>setActiveTab('monitor');
+</script>
+</body>
+</html>
