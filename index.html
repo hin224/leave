@@ -237,63 +237,85 @@
 
 <!-- 业务脚本（ESM） -->
 <script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js";
+  import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
-const SUPABASE_URL = "https://ktgrbbzpqfuiprpkbtbk.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0Z3JiYnpwcWZ1aXBycGtidGJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjkzMTQsImV4cCI6MjA3NDkwNTMxNH0.Ik-rT3rqGRx1PUYBd41ZofQf90H0v8vru67dv7ktNvs";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // 你的 Supabase 项目参数
+  const SUPABASE_URL = "https://ktgrbbzpqfuiprpkbtbk.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0Z3JiYnpwcWZ1aXBycGtidGJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjkzMTQsImV4cCI6MjA3NDkwNTMxNH0.Ik-rT3rqGRx1PUYBd41ZofQf90H0v8vru67dv7ktNvs";
 
-/***** —— 全局变量 —— *****/
-const SIMPLE_PASSWORD='123456';
-let students=[];     // {id, cn, en, class, pinyin?, eng?, bm?, math?}
-let schedule=[];     // {class, weekday, period, subject, teacher, group?}
-let pickList=[];     // {id, cn, en, class}
-let applyDates=[];   // 申请多日期
-let monDates=[];     // 监看多日期
+  // 初始化客户端
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/***** —— 从 Supabase 读取学生 + 课表 —— *****/
-async function loadCoreDataFromSupabase() {
-  try {
-    const { data: stu, error: e1 } = await supabase
-      .from("students")
-      .select("id,name_cn,name_en,pinyin,class,group_en,group_bm,group_math")
-      .order("id");
-    if (e1) throw e1;
-    students = (stu || []).map(s => ({
-      id: s.id,
-      cn: s.name_cn || "",
-      en: s.name_en || "",
-      class: (s.class || "").toUpperCase(),
-      pinyin: s.pinyin || "",
-      eng: (s.group_en || "").toLowerCase(),
-      bm: (s.group_bm || "").toLowerCase(),
-      math: (s.group_math || "").toLowerCase(),
-    }));
+  /***** —— 全局变量 —— *****/
+  const SIMPLE_PASSWORD='123456';
+  let students=[];     // {id, cn, en, class, pinyin?, eng?, bm?, math?}
+  let schedule=[];     // {class, weekday, period, subject, teacher, group?}
+  let pickList=[];     // {id, cn, en, class}
+  let applyDates=[];   // 申请多日期
+  let monDates=[];     // 监看多日期
 
-    const { data: tt, error: e2 } = await supabase
-      .from("timetable")
-      .select("class,weekday,period,subject,teacher,group_tag")
-      .order("class", { ascending: true })
-      .order("weekday", { ascending: true })
-      .order("period", { ascending: true });
-    if (e2) throw e2;
-    schedule = (tt || []).map(x => ({
-      class: (x.class || "").toUpperCase(),
-      weekday: x.weekday,
-      period: String(x.period),
-      subject: x.subject || "",
-      teacher: x.teacher || "",
-      group: (x.group_tag || "").toLowerCase(),
-    }));
+  // —— 从 Supabase 读取学生 + 课表到现有数组 ——  
+  async function loadCoreDataFromSupabase() {
+    try {
+      // 简单连通性自检（会在控制台看到具体 error）
+      const { data: ping, error: pingErr } = await supabase.from("students").select("id").limit(1);
+      if (pingErr) throw pingErr;
 
-    buildTeacherClassSelects();
-    console.log(`[Supabase] loaded students=${students.length}, timetable=${schedule.length}`);
-  } catch (err) {
-    console.error("Load from Supabase failed:", err);
-    alert("从云端加载学生/课表失败：请检查网络或 RLS 权限。");
+      // students
+      const { data: stu, error: e1 } = await supabase
+        .from("students")
+        .select("id,name_cn,name_en,pinyin,class,group_en,group_bm,group_math")
+        .order("id");
+      if (e1) throw e1;
+      students = (stu || []).map(s => ({
+        id: s.id,
+        cn: s.name_cn || "",
+        en: s.name_en || "",
+        class: (s.class || "").toUpperCase(),
+        pinyin: s.pinyin || "",
+        eng: (s.group_en || "").toLowerCase(),
+        bm: (s.group_bm || "").toLowerCase(),
+        math: (s.group_math || "").toLowerCase(),
+      }));
+
+      // timetable
+      const { data: tt, error: e2 } = await supabase
+        .from("timetable")
+        .select("class,weekday,period,subject,teacher,group_tag")
+        .order("class", { ascending: true })
+        .order("weekday", { ascending: true })
+        .order("period", { ascending: true });
+      if (e2) throw e2;
+      schedule = (tt || []).map(x => ({
+        class: (x.class || "").toUpperCase(),
+        weekday: x.weekday,
+        period: String(x.period),
+        subject: x.subject || "",
+        teacher: x.teacher || "",
+        group: (x.group_tag || "").toLowerCase(),
+      }));
+
+      buildTeacherClassSelects?.();
+      console.log(`[Supabase] loaded students=${students.length}, timetable=${schedule.length}`);
+    } catch (err) {
+      console.error("Load from Supabase failed:", err);
+      alert("从云端加载学生/课表失败：请检查网络或 RLS 权限（详细错误见开发者控制台）。");
+    }
   }
-}
-document.addEventListener("DOMContentLoaded", loadCoreDataFromSupabase);
+
+  // …………（把你现有的所有函数/事件绑定代码原样放在这里，别改）…………
+  // ✳️ 注意：你页面上已经移除了 CSV 上传输入框，就把这两行删掉或注释
+  // const fileStudents=document.getElementById('fileStudents');
+  // const fileSchedule=document.getElementById('fileSchedule');
+
+  // DOM 绑定与函数（照你原来那份，粘过来即可）
+  // —— 略 ——（保留你已有的全部函数：renderChips / buildMonitorView / 等等）
+
+  // 页面加载自动拉云端
+  document.addEventListener("DOMContentLoaded", () => {
+    loadCoreDataFromSupabase();
+  });
+</script>
 
 /***** —— DOM 绑定 —— *****/
 const idQuick=document.getElementById('idQuick');
