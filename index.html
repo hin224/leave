@@ -251,7 +251,17 @@
   <div class="card scroll-x" id="monResult"></div>
 </div>
 
-<script>
+import { createClient } from "https://esm.sh/@supabase/supabase-js";
+
+// 你的 Supabase 项目参数
+const SUPABASE_URL = "https://ktgrbbzpqfuiprpkbtbk.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0Z3JiYnpwcWZ1aXBycGtidGJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjkzMTQsImV4cCI6MjA3NDkwNTMxNH0.Ik-rT3rqGRx1PUYBd41ZofQf90H0v8vru67dv7ktNvs"; 
+
+// 初始化客户端
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+<<script type="module">
+>
 /***** —— 全局变量 —— *****/
 const SIMPLE_PASSWORD='123456';
 let students=[];     // {id, cn, en, class, pinyin?, eng?, bm?, math?}
@@ -259,6 +269,58 @@ let schedule=[];     // {class, weekday, period, subject, teacher, group?}
 let pickList=[];     // {id, cn, en, class}
 let applyDates=[];   // 申请多日期
 let monDates=[];     // 监看多日期
+// —— 从 Supabase 读取核心数据（学生 + 课表）——
+async function loadCoreDataFromSupabase() {
+  try {
+    // 1) students
+    const { data: stu, error: e1 } = await supabase
+      .from("students")
+      .select("id,name_cn,name_en,pinyin,class,group_en,group_bm,group_math")
+      .order("id");
+    if (e1) throw e1;
+    students = (stu || []).map(s => ({
+      id: s.id,
+      cn: s.name_cn || "",
+      en: s.name_en || "",
+      class: (s.class || "").toUpperCase(),
+      pinyin: s.pinyin || "",
+      eng: (s.group_en || "").toLowerCase(),
+      bm: (s.group_bm || "").toLowerCase(),
+      math: (s.group_math || "").toLowerCase(),
+    }));
+
+    // 2) timetable
+    const { data: tt, error: e2 } = await supabase
+      .from("timetable")
+      .select("class,weekday,period,subject,teacher,group_tag")
+      .order("class", { ascending: true })
+      .order("weekday", { ascending: true })
+      .order("period", { ascending: true });
+    if (e2) throw e2;
+    schedule = (tt || []).map(x => ({
+      class: (x.class || "").toUpperCase(),
+      weekday: x.weekday,                         // 你的算法里支持 English weekday
+      period: String(x.period),
+      subject: x.subject || "",
+      teacher: x.teacher || "",
+      group: (x.group_tag || "").toLowerCase(),   // 你的匹配函数用小写
+    }));
+
+    // 刷新监看页下拉框可选值
+    buildTeacherClassSelects();
+
+    console.log(`[Supabase] loaded students: ${students.length}, timetable: ${schedule.length}`);
+  } catch (err) {
+    console.error("Load from Supabase failed:", err);
+    alert("从云端加载学生/课表失败：请检查网络或 RLS 权限设置。");
+  }
+}
+
+// 页面加载后自动从云端拉数据（保留你原来的 CSV 上传入口，二选一都行）
+document.addEventListener("DOMContentLoaded", () => {
+  loadCoreDataFromSupabase();
+});
+
 
 /***** —— DOM 绑定 —— *****/
 // 申请区
@@ -713,9 +775,39 @@ document.getElementById('btnGenText').onclick=()=>{
   outBox.style.display='block'; outCn.value=t.cn; outEn.value=t.en;
 };
 
-document.getElementById('btnSave').onclick=()=>{
-  const t=buildTexts(); if(!t) return; // 生成时已写入
-  alert(`已保存 ${pickList.length * applyDates.length} 条记录到“记录/查看”与“监看”可用。`);
+document.getElementById('btnSave').onclick = async () => {
+  const t = buildTexts();
+  if (!t) return; // buildTexts 已经把记录写入 localStorage
+
+  // —— 追加：写入 Supabase applications_flat（每个日期 × 每个学生 一条）——
+  try {
+    const base = { period: (periodInp.value || '').trim(), activity: (activityInp.value || '').trim() };
+    const rows = [];
+    applyDates.forEach(d => {
+      pickList.forEach(s => {
+        rows.push({
+          date: d,
+          period: base.period,
+          student_id: s.id,
+          class: s.class,
+          name_cn: s.cn,
+          name_en: s.en,
+          activity: base.activity,
+        });
+      });
+    });
+
+    if (rows.length) {
+      const { error } = await supabase.from("applications_flat").insert(rows);
+      if (error) throw error;
+      alert(`已保存 ${rows.length} 条记录到云端与本地。`);
+    } else {
+      alert("没有可保存的记录。");
+    }
+  } catch (e) {
+    console.error("Save to Supabase failed:", e);
+    alert("已写入本地，但写入云端失败：请检查网络或 RLS 权限。");
+  }
 };
 
 btnCopyCn.onclick=async()=>{ try{ await navigator.clipboard.writeText(outCn.value||''); alert('中文文本已复制'); }catch(e){ alert('复制失败：'+e.message); } };
