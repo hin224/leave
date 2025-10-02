@@ -254,6 +254,25 @@
   let monDates=[];     // 监看多日期
 
   /***** —— 3) 从 Supabase 读取学生 + 课表 —— *****/
+  function buildTeacherClassSelects(){
+  // 依赖：schedule、monTeacher、monClass 已经声明
+  const tset = new Set(schedule.map(x=>x.teacher).filter(Boolean));
+  const carr = Array.from(new Set(schedule.map(x=>x.class).filter(Boolean))).sort();
+  const tarr = Array.from(tset).sort();
+
+  const curT = monTeacher.value;
+  monTeacher.innerHTML =
+    '<option value="">（全部老师）</option>' +
+    tarr.map(t=>`<option>${t}</option>`).join('');
+  if (tarr.includes(curT)) monTeacher.value = curT;
+
+  const curC = monClass.value;
+  monClass.innerHTML =
+    '<option value="">（全部班级）</option>' +
+    carr.map(c=>`<option>${c}</option>`).join('');
+  if (carr.includes(curC)) monClass.value = curC;
+}
+
   async function loadCoreDataFromSupabase() {
     try {
       const { data: stu, error: e1 } = await supabase
