@@ -898,14 +898,15 @@ async function ensureMonitorDefaults(){
       monDatesUI.render();
       monMode.value = 'timetable';
       monitorDefaultActive = true;
+      monitorDefaultInitialized = true;
     } else {
       monitorDefaultActive = false;
+      monitorDefaultInitialized = false;
     }
   } catch (err) {
     console.error('加载监看默认日期失败：', err);
     monitorDefaultActive = false;
-  } finally {
-    monitorDefaultInitialized = true;
+    monitorDefaultInitialized = false;
   }
 }
 
@@ -1003,7 +1004,7 @@ function buildMonitorRowsForDate(d){
 
 async function buildMonitorView(){
   monResult.innerHTML='';
-  if(!monitorDefaultInitialized){
+  if(!monitorDefaultInitialized || (!monDates.length && !monitorUserModified)){
     await ensureMonitorDefaults();
   }
   monitorDefaultActive = monitorDefaultActive && monMode.value==='timetable';
