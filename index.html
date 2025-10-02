@@ -252,6 +252,7 @@
   let pickList=[];     // {id, cn, en, class}
   let applyDates=[];   // 申请多日期
   let monDates=[];     // 监看多日期
+  let hasUnsavedChanges=false; // 申请表单是否存在未保存修改
 
   /***** —— 3) 从 Supabase 读取学生 + 课表 —— *****/
   function buildTeacherClassSelects(){
@@ -352,6 +353,20 @@ const outEn=document.getElementById('outEn');
 const btnCopyCn=document.getElementById('btnCopyCn');
 const btnCopyEn=document.getElementById('btnCopyEn');
 
+/***** —— 未保存状态 —— *****/
+const resetUnsavedState=()=>{ hasUnsavedChanges=false; };
+const markUnsaved=()=>{ hasUnsavedChanges=true; };
+const updateUnsavedState=()=>{
+  if(!pickList.length && !applyDates.length && !(periodInp.value||'').trim() && !(activityInp.value||'').trim()){
+    hasUnsavedChanges=false;
+  }
+};
+window.addEventListener('beforeunload',event=>{
+  if(!hasUnsavedChanges) return;
+  event.preventDefault();
+  event.returnValue='';
+});
+
 // 记录区
 const fltDates=document.getElementById('fltDates');
 const fltClass=document.getElementById('fltClass');
@@ -441,10 +456,32 @@ function fmtDateYMDLocal(d){
 }
 
 /***** —— 名单 chips —— *****/
-function renderChips(){ chips.innerHTML=pickList.map(s=>`<span class="chip">${s.id} ${s.cn}（${s.en}）<button class="btn ghost" data-id="${s.id}">x</button></span>`).join(''); updateConflict(); }
-chips.addEventListener('click',e=>{ const b=e.target.closest('button[data-id]'); if(!b) return; const id=b.getAttribute('data-id'); pickList=pickList.filter(x=>x.id!==id); renderChips(); });
+function renderChips(){
+  chips.innerHTML=pickList.map(s=>`<span class="chip">${s.id} ${s.cn}（${s.en}）<button class="btn ghost" data-id="${s.id}">x</button></span>`).join('');
+  updateConflict();
+  updateUnsavedState();
+}
+chips.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-id]');
+  if(!b) return;
+  const id=b.getAttribute('data-id');
+  const prevLen=pickList.length;
+  pickList=pickList.filter(x=>x.id!==id);
+  if(pickList.length!==prevLen) markUnsaved();
+  renderChips();
+});
 
-function addById(id){ id=(id||'').trim(); if(!id){ alert('请输入学号'); return; } const s=students.find(x=>x.id===id); if(!s){ alert('未找到该学号'); return; } if(!pickList.some(x=>x.id===s.id)) pickList.push({id:s.id, cn:s.cn, en:s.en, class:s.class}); renderChips(); }
+function addById(id){
+  id=(id||'').trim();
+  if(!id){ alert('请输入学号'); return; }
+  const s=students.find(x=>x.id===id);
+  if(!s){ alert('未找到该学号'); return; }
+  if(!pickList.some(x=>x.id===s.id)){
+    pickList.push({id:s.id, cn:s.cn, en:s.en, class:s.class});
+    markUnsaved();
+  }
+  renderChips();
+}
 btnAddById.onclick=()=>addById(idQuick.value);
 idQuick.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addById(idQuick.value); }});
 
@@ -452,9 +489,14 @@ btnAddBulk.onclick=()=>{
   const raw=idsBulk.value||''; const ids=raw.split(/[\s,，;；]+/).map(x=>x.trim()).filter(Boolean);
   if(!ids.length){ alert('请先输入学号'); return; }
   let added=0, miss=[]; ids.forEach(id=>{ const s=students.find(x=>x.id===id); if(!s){ miss.push(id); return; } if(!pickList.some(x=>x.id===s.id)){ pickList.push({id:s.id,cn:s.cn,en:s.en,class:s.class}); added++; } });
+  if(added>0) markUnsaved();
   renderChips(); alert(`加入 ${added} 人${miss.length?('；未找到：'+miss.join(' ')):''}`);
 };
-btnClearList.onclick=()=>{ pickList=[]; renderChips(); };
+btnClearList.onclick=()=>{ pickList=[]; renderChips(); resetUnsavedState(); };
+
+const handleApplyFieldInput=()=>{ markUnsaved(); updateUnsavedState(); };
+periodInp.addEventListener('input',handleApplyFieldInput);
+activityInp.addEventListener('input',handleApplyFieldInput);
 
 /***** —— 模糊搜索 —— *****/
 let candidates=[]; let highlightIndex=-1;
@@ -489,19 +531,54 @@ document.addEventListener('click',e=>{ if(!suggestList.contains(e.target) && e.t
 
 /***** —— 多日期 chips —— *****/
 const applyDatesUI = {
-  render(){ applyDateChips.innerHTML=applyDates.map(d=>`<span class="chip">${d}<button class="btn ghost" data-d="${d}">x</button></span>`).join(''); updateConflict(); }
+  render(){
+    applyDateChips.innerHTML=applyDates.map(d=>`<span class="chip">${d}<button class="btn ghost" data-d="${d}">x</button></span>`).join('');
+    updateConflict();
+    updateUnsavedState();
+  }
 };
-document.getElementById('btnAddApplyDate').onclick=()=>{ const d=applyDatePicker.value; if(!d) return; if(!applyDates.includes(d)){ applyDates.push(d); applyDates.sort(); } applyDatesUI.render(); };
-applyDatePicker.addEventListener('change',()=>{ if(autoAddDate && autoAddDate.checked){ const d=applyDatePicker.value; if(!d) return; if(!applyDates.includes(d)){ applyDates.push(d); applyDates.sort(); } applyDatesUI.render(); }});
+document.getElementById('btnAddApplyDate').onclick=()=>{
+  const d=applyDatePicker.value;
+  if(!d) return;
+  if(!applyDates.includes(d)){
+    applyDates.push(d);
+    applyDates.sort();
+    markUnsaved();
+  }
+  applyDatesUI.render();
+};
+applyDatePicker.addEventListener('change',()=>{
+  if(autoAddDate && autoAddDate.checked){
+    const d=applyDatePicker.value;
+    if(!d) return;
+    if(!applyDates.includes(d)){
+      applyDates.push(d);
+      applyDates.sort();
+      markUnsaved();
+    }
+    applyDatesUI.render();
+  }
+});
 btnAddRange.onclick=()=>{
   const a=applyDatePickerStart.value, b=applyDatePickerEnd.value; if(!a||!b){ alert('请先选择起止日期'); return; }
   const start=new Date(a+'T00:00:00'), end=new Date(b+'T00:00:00');
   if(start>end){ alert('起始不能晚于结束'); return; }
   const cur=new Date(start);
-  while(cur<=end){ const d=fmtDateYMDLocal(cur); if(!applyDates.includes(d)) applyDates.push(d); cur.setDate(cur.getDate()+1); }
-  applyDates.sort(); applyDatesUI.render();
+  let added=0;
+  while(cur<=end){ const d=fmtDateYMDLocal(cur); if(!applyDates.includes(d)){ applyDates.push(d); added++; } cur.setDate(cur.getDate()+1); }
+  applyDates.sort();
+  if(added>0) markUnsaved();
+  applyDatesUI.render();
 };
-applyDateChips.addEventListener('click',e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; const d=b.getAttribute('data-d'); applyDates=applyDates.filter(x=>x!==d); applyDatesUI.render(); });
+applyDateChips.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-d]');
+  if(!b) return;
+  const d=b.getAttribute('data-d');
+  const prevLen=applyDates.length;
+  applyDates=applyDates.filter(x=>x!==d);
+  if(applyDates.length!==prevLen) markUnsaved();
+  applyDatesUI.render();
+});
 
 /***** —— 冲堂提示（按第一个日期） —— *****/
 function updateConflict(){
@@ -630,6 +707,7 @@ document.getElementById('btnSave').onclick = async () => {
       rows.forEach(r => allLocal.push({ ...r, ts: r.client_ts }));
       localStorage.setItem('leave_records', JSON.stringify(allLocal));
 
+      resetUnsavedState();
       alert(`已保存 ${rows.length} 条记录到云端。`);
     } else {
       alert("没有可保存的记录。");
