@@ -903,6 +903,7 @@ async function ensureMonitorDefaults(){
       monMode.value = 'timetable';
       monitorDefaultActive = true;
       monitorDefaultInitialized = true;
+      monitorUserModified = false;
     } else {
       monitorDefaultActive = false;
       monitorDefaultInitialized = false;
@@ -1008,7 +1009,7 @@ function buildMonitorRowsForDate(d){
 
 async function buildMonitorView(){
   monResult.innerHTML='';
-  if(!monitorDefaultInitialized || (!monDates.length && !monitorUserModified)){
+  if(!monitorDefaultInitialized || !monDates.length){
     await ensureMonitorDefaults();
   }
   monitorDefaultActive = monitorDefaultActive && monMode.value==='timetable';
