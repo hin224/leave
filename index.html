@@ -764,13 +764,6 @@ function getAllRecords(){ // 监看内部依赖的统一取数
   }));
 }
 
-function buildTeacherClassSelects(){
-  const tset=new Set(schedule.map(x=>x.teacher).filter(Boolean)); const tarr=Array.from(tset).sort(); const curT=monTeacher.value;
-  monTeacher.innerHTML='<option value="">（全部老师）</option>'+tarr.map(t=>`<option>${t}</option>`).join(''); if(tarr.includes(curT)) monTeacher.value=curT;
-  const cset=new Set(schedule.map(x=>x.class).filter(Boolean)); const carr=Array.from(cset).sort(); const curC=monClass.value;
-  monClass.innerHTML='<option value="">（全部班级）</option>'+carr.map(c=>`<option>${c}</option>`).join(''); if(carr.includes(curC)) monClass.value=curC;
-}
-
 function recordMatchesSlot(rec, slot){
   if(rec.class!==slot.class) return false;
   const gkey=pickStudentGroupKey(slot.subject);
@@ -939,12 +932,8 @@ tabApply.onclick=()=>setActiveTab('apply');
 tabRecords.onclick=()=>setActiveTab('records');
 tabMonitor.onclick=()=>setActiveTab('monitor');
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', loadCoreDataFromSupabase);
-} else {
-  loadCoreDataFromSupabase();
-}
+// Supabase 核心数据在模块顶部通过 DOMContentLoaded 注册加载
 </script>
 
 </body>
-</html>‘
+</html>
