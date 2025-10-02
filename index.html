@@ -880,7 +880,7 @@ btnClear.onclick=async ()=>{
 /***** —— 监看（云端） —— */
 let monCloudCache = [];  // {date, period, student_id, class, name_cn, name_en, activity, department_*, client_ts}
 async function ensureMonitorDefaults(){
-  if(monitorUserModified || monDates.length || monitorDefaultInitialized){
+  if(monitorUserModified || monDates.length){
     monitorDefaultActive = !monitorUserModified && monMode.value==='timetable' && monDates.length>0;
     monitorDefaultInitialized = true;
     return;
