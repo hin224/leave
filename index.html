@@ -186,6 +186,7 @@
           <th>中文姓名</th>
           <th>英文姓名</th>
           <th>活动</th>
+          <th>部门</th>
           <th class="nowrap">操作</th>
         </tr>
       </thead>
@@ -221,9 +222,9 @@
       <div class="grow">
         <label>显示模式：</label>
         <select id="monMode">
+          <option value="timetable" selected>时间表</option>
           <option value="table">表格</option>
           <option value="cards">卡片</option>
-          <option value="timetable">时间表</option>
         </select>
       </div>
       <div class="grow">
@@ -246,12 +247,19 @@
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   /***** —— 2) 全局变量 —— *****/
-  const SIMPLE_PASSWORD='123456';
+  const DEPARTMENT_PASSWORDS=[
+    { code:'cca', cn:'联课处', en:'Co-Curricular Department', passwords:['123456'] },
+    // 如需新增部门，请在此数组增加配置项，并把 passwords 改成该部门专属密码列表
+  ];
   let students=[];     // {id, cn, en, class, pinyin?, eng?, bm?, math?}
   let schedule=[];     // {class, weekday, period, subject, teacher, group?}
   let pickList=[];     // {id, cn, en, class}
   let applyDates=[];   // 申请多日期
   let monDates=[];     // 监看多日期
+  let hasUnsavedChanges=false; // 申请表单是否存在未保存修改
+  let monitorDefaultInitialized=false;
+  let monitorDefaultActive=false;
+  let monitorUserModified=false;
 
   /***** —— 3) 从 Supabase 读取学生 + 课表 —— *****/
   function buildTeacherClassSelects(){
@@ -352,6 +360,20 @@ const outEn=document.getElementById('outEn');
 const btnCopyCn=document.getElementById('btnCopyCn');
 const btnCopyEn=document.getElementById('btnCopyEn');
 
+/***** —— 未保存状态 —— *****/
+const resetUnsavedState=()=>{ hasUnsavedChanges=false; };
+const markUnsaved=()=>{ hasUnsavedChanges=true; };
+const updateUnsavedState=()=>{
+  if(!pickList.length && !applyDates.length && !(periodInp.value||'').trim() && !(activityInp.value||'').trim()){
+    hasUnsavedChanges=false;
+  }
+};
+window.addEventListener('beforeunload',event=>{
+  if(!hasUnsavedChanges) return;
+  event.preventDefault();
+  event.returnValue='';
+});
+
 // 记录区
 const fltDates=document.getElementById('fltDates');
 const fltClass=document.getElementById('fltClass');
@@ -399,6 +421,21 @@ const trimLower=s=>(s||'').toString().trim().toLowerCase();
 const isJuniorClass=cls=>/^J/i.test(cls||'');
 const classCodeToCn=cls=>cls||'';
 
+function parseDepartmentFromPassword(input){
+  const raw=(input||'').trim();
+  if(!raw) return null;
+  const normalized=raw.toLowerCase();
+  for(const dept of DEPARTMENT_PASSWORDS){
+    const list=(dept.passwords||[]).map(p=>p.toLowerCase());
+    if(list.includes(normalized)) return { code:dept.code, cn:dept.cn, en:dept.en };
+    if(typeof dept.parse==='function'){
+      const extra=dept.parse(raw);
+      if(extra) return { code:dept.code, cn:dept.cn, en:dept.en, ...extra };
+    }
+  }
+  return null;
+}
+
 function pickStudentGroupKey(subject){
   const s=(subject||'').toLowerCase();
   if(s.includes('英')||s.startsWith('en')) return 'eng';
@@ -441,10 +478,32 @@ function fmtDateYMDLocal(d){
 }
 
 /***** —— 名单 chips —— *****/
-function renderChips(){ chips.innerHTML=pickList.map(s=>`<span class="chip">${s.id} ${s.cn}（${s.en}）<button class="btn ghost" data-id="${s.id}">x</button></span>`).join(''); updateConflict(); }
-chips.addEventListener('click',e=>{ const b=e.target.closest('button[data-id]'); if(!b) return; const id=b.getAttribute('data-id'); pickList=pickList.filter(x=>x.id!==id); renderChips(); });
+function renderChips(){
+  chips.innerHTML=pickList.map(s=>`<span class="chip">${s.id} ${s.cn}（${s.en}）<button class="btn ghost" data-id="${s.id}">x</button></span>`).join('');
+  updateConflict();
+  updateUnsavedState();
+}
+chips.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-id]');
+  if(!b) return;
+  const id=b.getAttribute('data-id');
+  const prevLen=pickList.length;
+  pickList=pickList.filter(x=>x.id!==id);
+  if(pickList.length!==prevLen) markUnsaved();
+  renderChips();
+});
 
-function addById(id){ id=(id||'').trim(); if(!id){ alert('请输入学号'); return; } const s=students.find(x=>x.id===id); if(!s){ alert('未找到该学号'); return; } if(!pickList.some(x=>x.id===s.id)) pickList.push({id:s.id, cn:s.cn, en:s.en, class:s.class}); renderChips(); }
+function addById(id){
+  id=(id||'').trim();
+  if(!id){ alert('请输入学号'); return; }
+  const s=students.find(x=>x.id===id);
+  if(!s){ alert('未找到该学号'); return; }
+  if(!pickList.some(x=>x.id===s.id)){
+    pickList.push({id:s.id, cn:s.cn, en:s.en, class:s.class});
+    markUnsaved();
+  }
+  renderChips();
+}
 btnAddById.onclick=()=>addById(idQuick.value);
 idQuick.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addById(idQuick.value); }});
 
@@ -452,9 +511,14 @@ btnAddBulk.onclick=()=>{
   const raw=idsBulk.value||''; const ids=raw.split(/[\s,，;；]+/).map(x=>x.trim()).filter(Boolean);
   if(!ids.length){ alert('请先输入学号'); return; }
   let added=0, miss=[]; ids.forEach(id=>{ const s=students.find(x=>x.id===id); if(!s){ miss.push(id); return; } if(!pickList.some(x=>x.id===s.id)){ pickList.push({id:s.id,cn:s.cn,en:s.en,class:s.class}); added++; } });
+  if(added>0) markUnsaved();
   renderChips(); alert(`加入 ${added} 人${miss.length?('；未找到：'+miss.join(' ')):''}`);
 };
-btnClearList.onclick=()=>{ pickList=[]; renderChips(); };
+btnClearList.onclick=()=>{ pickList=[]; renderChips(); resetUnsavedState(); };
+
+const handleApplyFieldInput=()=>{ markUnsaved(); updateUnsavedState(); };
+periodInp.addEventListener('input',handleApplyFieldInput);
+activityInp.addEventListener('input',handleApplyFieldInput);
 
 /***** —— 模糊搜索 —— *****/
 let candidates=[]; let highlightIndex=-1;
@@ -489,19 +553,54 @@ document.addEventListener('click',e=>{ if(!suggestList.contains(e.target) && e.t
 
 /***** —— 多日期 chips —— *****/
 const applyDatesUI = {
-  render(){ applyDateChips.innerHTML=applyDates.map(d=>`<span class="chip">${d}<button class="btn ghost" data-d="${d}">x</button></span>`).join(''); updateConflict(); }
+  render(){
+    applyDateChips.innerHTML=applyDates.map(d=>`<span class="chip">${d}<button class="btn ghost" data-d="${d}">x</button></span>`).join('');
+    updateConflict();
+    updateUnsavedState();
+  }
 };
-document.getElementById('btnAddApplyDate').onclick=()=>{ const d=applyDatePicker.value; if(!d) return; if(!applyDates.includes(d)){ applyDates.push(d); applyDates.sort(); } applyDatesUI.render(); };
-applyDatePicker.addEventListener('change',()=>{ if(autoAddDate && autoAddDate.checked){ const d=applyDatePicker.value; if(!d) return; if(!applyDates.includes(d)){ applyDates.push(d); applyDates.sort(); } applyDatesUI.render(); }});
+document.getElementById('btnAddApplyDate').onclick=()=>{
+  const d=applyDatePicker.value;
+  if(!d) return;
+  if(!applyDates.includes(d)){
+    applyDates.push(d);
+    applyDates.sort();
+    markUnsaved();
+  }
+  applyDatesUI.render();
+};
+applyDatePicker.addEventListener('change',()=>{
+  if(autoAddDate && autoAddDate.checked){
+    const d=applyDatePicker.value;
+    if(!d) return;
+    if(!applyDates.includes(d)){
+      applyDates.push(d);
+      applyDates.sort();
+      markUnsaved();
+    }
+    applyDatesUI.render();
+  }
+});
 btnAddRange.onclick=()=>{
   const a=applyDatePickerStart.value, b=applyDatePickerEnd.value; if(!a||!b){ alert('请先选择起止日期'); return; }
   const start=new Date(a+'T00:00:00'), end=new Date(b+'T00:00:00');
   if(start>end){ alert('起始不能晚于结束'); return; }
   const cur=new Date(start);
-  while(cur<=end){ const d=fmtDateYMDLocal(cur); if(!applyDates.includes(d)) applyDates.push(d); cur.setDate(cur.getDate()+1); }
-  applyDates.sort(); applyDatesUI.render();
+  let added=0;
+  while(cur<=end){ const d=fmtDateYMDLocal(cur); if(!applyDates.includes(d)){ applyDates.push(d); added++; } cur.setDate(cur.getDate()+1); }
+  applyDates.sort();
+  if(added>0) markUnsaved();
+  applyDatesUI.render();
 };
-applyDateChips.addEventListener('click',e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; const d=b.getAttribute('data-d'); applyDates=applyDates.filter(x=>x!==d); applyDatesUI.render(); });
+applyDateChips.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-d]');
+  if(!b) return;
+  const d=b.getAttribute('data-d');
+  const prevLen=applyDates.length;
+  applyDates=applyDates.filter(x=>x!==d);
+  if(applyDates.length!==prevLen) markUnsaved();
+  applyDatesUI.render();
+});
 
 /***** —— 冲堂提示（按第一个日期） —— *****/
 function updateConflict(){
@@ -528,7 +627,8 @@ function buildTexts(){
   if(!applyDates.length){ alert('请至少加入一个申请日期'); return null; }
   if(!periodInp.value){ alert('请填写时间段'); return null; }
   if(!activityInp.value){ alert('请填写活动名称'); return null; }
-  if(pwdInp.value!==SIMPLE_PASSWORD){ alert('密码不正确'); return null; }
+  const deptInfo=parseDepartmentFromPassword(pwdInp.value);
+  if(!deptInfo){ alert('密码不正确'); return null; }
 
   const periodText=periodInp.value.trim();
   const blocksCn=[], blocksEn=[];
@@ -571,7 +671,7 @@ ${listCn}
 
 ${missCn?`请假期间冲堂课程：${missCn}。\n`:''}如有不便，敬请见谅。
 
-联课处
+${deptInfo.cn}
 日期：${dateCn}`;
 
     let periodEn=periodText; if(/第.*节/.test(periodEn)){ periodEn='period '+periodEn.replace(/[第节]/g,'').replace('-', '–'); }
@@ -584,13 +684,17 @@ ${listEn}
 
 ${missEn?`Classes missed: ${missEn}.\n`:''}We apologize for any inconvenience caused.
 
-Co-Curricular Department
+${deptInfo.en}
 Date: ${dateEn}`;
 
     blocksCn.push(cn); blocksEn.push(en);
   });
 
-  return { cn: blocksCn.join('\n\n'+ '——'.repeat(20) +'\n\n'), en: blocksEn.join('\n\n'+ '—'.repeat(40) +'\n\n') };
+  return {
+    cn: blocksCn.join('\n\n'+ '——'.repeat(20) +'\n\n'),
+    en: blocksEn.join('\n\n'+ '—'.repeat(40) +'\n\n'),
+    dept: deptInfo
+  };
 }
 
 document.getElementById('btnGenText').onclick=()=>{
@@ -603,7 +707,13 @@ document.getElementById('btnSave').onclick = async () => {
   if (!t) return;
 
   try {
-    const base = { period: (periodInp.value || '').trim(), activity: (activityInp.value || '').trim() };
+    const base = {
+      period: (periodInp.value || '').trim(),
+      activity: (activityInp.value || '').trim(),
+      department_cn: t.dept?.cn || '',
+      department_en: t.dept?.en || '',
+      department_code: t.dept?.code || ''
+    };
     const nowTs = Date.now();
     const rows = [];
     applyDates.forEach(d => {
@@ -616,20 +726,34 @@ document.getElementById('btnSave').onclick = async () => {
           name_cn: s.cn,
           name_en: s.en,
           activity: base.activity,
+          department_cn: base.department_cn,
+          department_en: base.department_en,
+          department_code: base.department_code,
           client_ts: nowTs, // 统一批次标识
         });
       });
     });
 
     if (rows.length) {
-      const { error } = await supabase.from("applications_flat").insert(rows);
-      if (error) throw error;
+      const rowsForInsert = rows.map(r => ({ ...r }));
+      const { error } = await supabase.from("applications_flat").insert(rowsForInsert);
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('column') && msg.includes('department')) {
+          const stripped = rowsForInsert.map(({ department_cn, department_en, department_code, ...rest }) => rest);
+          const retry = await supabase.from("applications_flat").insert(stripped);
+          if (retry.error) throw retry.error;
+        } else {
+          throw error;
+        }
+      }
 
       // —— 可选兜底：也写入本地（断网时仍能用“记录/监看”离线导出）
       const allLocal = JSON.parse(localStorage.getItem('leave_records')||'[]');
       rows.forEach(r => allLocal.push({ ...r, ts: r.client_ts }));
       localStorage.setItem('leave_records', JSON.stringify(allLocal));
 
+      resetUnsavedState();
       alert(`已保存 ${rows.length} 条记录到云端。`);
     } else {
       alert("没有可保存的记录。");
@@ -647,20 +771,31 @@ btnCopyEn.onclick=async()=>{ try{ await navigator.clipboard.writeText(outEn.valu
 function parseDatesMulti(text){ return (text||'').split(/[^0-9-]+/).map(s=>s.trim()).filter(Boolean); }
 
 async function fetchFilteredRecordsFromCloud(){
-  let q = supabase
-    .from('applications_flat')
-    .select('date, period, student_id, class, name_cn, name_en, activity, client_ts, inserted_at')
-    .order('date', { ascending: true })
-    .order('inserted_at', { ascending: true });
-
+  const columnsFull='date, period, student_id, class, name_cn, name_en, activity, department_cn, department_en, department_code, client_ts, inserted_at';
+  const columnsFallback='date, period, student_id, class, name_cn, name_en, activity, client_ts, inserted_at';
   const dates = parseDatesMulti(fltDates.value);
   const cls = (fltClass.value||'').trim();
   const kw  = (fltQuery.value||'').trim().toLowerCase();
+  const buildQuery=(cols)=>{
+    let query = supabase
+      .from('applications_flat')
+      .select(cols)
+      .order('date', { ascending: true })
+      .order('inserted_at', { ascending: true });
+    if (dates.length) query = query.in('date', dates);
+    if (cls) query = query.eq('class', cls.toUpperCase());
+    return query;
+  };
+  let q = buildQuery(columnsFull);
 
-  if (dates.length) q = q.in('date', dates);
-  if (cls) q = q.eq('class', cls.toUpperCase());
-
-  const { data, error } = await q;
+  let { data, error } = await q;
+  if (error){
+    const msg=(error.message||'').toLowerCase();
+    if(msg.includes('column') && msg.includes('department')){
+      q = buildQuery(columnsFallback);
+      ({ data, error } = await q);
+    }
+  }
   if (error){ console.error(error); alert('拉取云端记录失败'); return []; }
 
   const list = (data||[]).filter(r=>{
@@ -684,6 +819,7 @@ async function refreshTable(){
       <td>${r.name_cn||''}</td>
       <td>${r.name_en||''}</td>
       <td>${r.activity||''}</td>
+      <td>${r.department_cn || r.department_en || ''}</td>
       <td><button class="btn ghost" data-idx="${i}" data-date="${r.date}" data-sid="${r.student_id}" data-ts="${r.client_ts||''}">删除</button></td>
     </tr>
   `).join('');
@@ -712,9 +848,9 @@ tblBody.addEventListener('click', async e=>{
 btnExport.onclick=()=>{
   const list = refreshTable._cache || [];
   if(!list.length){ alert('筛选结果为空'); return; }
-  const header=['日期','时间段','学号','班级','中文姓名','英文姓名','活动'];
+  const header=['日期','时间段','学号','班级','中文姓名','英文姓名','活动','部门'];
   const lines=[header.join(',')].concat(
-    list.map(r=>[ r.date,r.period,r.student_id,r.class,r.name_cn,r.name_en,r.activity ].map(s=>`"${(s||'').toString().replace(/"/g,'""')}"`).join(','))
+    list.map(r=>[ r.date,r.period,r.student_id,r.class,r.name_cn,r.name_en,r.activity,(r.department_cn||r.department_en||'') ].map(s=>`"${(s||'').toString().replace(/"/g,'""')}"`).join(','))
   );
   const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='外出申请记录_筛选.csv'; a.click();
@@ -742,13 +878,56 @@ btnClear.onclick=async ()=>{
 };
 
 /***** —— 监看（云端） —— */
-let monCloudCache = [];  // {date, period, student_id, class, name_cn, name_en, activity, client_ts}
+let monCloudCache = [];  // {date, period, student_id, class, name_cn, name_en, activity, department_*, client_ts}
+async function ensureMonitorDefaults(){
+  if(monitorUserModified || monDates.length || monitorDefaultInitialized){
+    monitorDefaultActive = !monitorUserModified && monMode.value==='timetable' && monDates.length>0;
+    monitorDefaultInitialized = true;
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('applications_flat')
+      .select('date', { distinct: true })
+      .order('date', { ascending: true });
+    if (error) throw error;
+    const list = Array.from(new Set((data||[]).map(item => item.date).filter(Boolean))).sort();
+    if (list.length) {
+      monDates = list;
+      monDatesUI.render();
+      monMode.value = 'timetable';
+      monitorDefaultActive = true;
+    } else {
+      monitorDefaultActive = false;
+    }
+  } catch (err) {
+    console.error('加载监看默认日期失败：', err);
+    monitorDefaultActive = false;
+  } finally {
+    monitorDefaultInitialized = true;
+  }
+}
+
 async function loadMonitorRecordsFromCloud(){
   if(!monDates.length){ monCloudCache = []; return; }
-  const { data, error } = await supabase
+  const columnsFull='date, period, student_id, class, name_cn, name_en, activity, department_cn, department_en, department_code, client_ts';
+  const columnsFallback='date, period, student_id, class, name_cn, name_en, activity, client_ts';
+  let query = supabase
     .from('applications_flat')
-    .select('date, period, student_id, class, name_cn, name_en, activity, client_ts')
+    .select(columnsFull)
     .in('date', monDates);
+  let { data, error } = await query;
+  if(error){
+    const msg=(error.message||'').toLowerCase();
+    if(msg.includes('column') && msg.includes('department')){
+      query = supabase
+        .from('applications_flat')
+        .select(columnsFallback)
+        .in('date', monDates);
+      ({ data, error } = await query);
+    }
+  }
   if(error){ console.error(error); alert('拉取监看记录失败'); monCloudCache = []; return; }
   monCloudCache = data || [];
 }
@@ -761,6 +940,9 @@ function getAllRecords(){ // 监看内部依赖的统一取数
     name_cn: r.name_cn,
     name_en: r.name_en,
     activity: r.activity,
+    department_cn: r.department_cn || '',
+    department_en: r.department_en || '',
+    department_code: r.department_code || '',
     ts: r.client_ts || 0
   }));
 }
@@ -821,6 +1003,10 @@ function buildMonitorRowsForDate(d){
 
 async function buildMonitorView(){
   monResult.innerHTML='';
+  if(!monitorDefaultInitialized){
+    await ensureMonitorDefaults();
+  }
+  monitorDefaultActive = monitorDefaultActive && monMode.value==='timetable';
   if(!monDates.length){ monResult.innerHTML='<div class="muted">请先加入至少一个日期。</div>'; return; }
 
   await loadMonitorRecordsFromCloud();
@@ -852,51 +1038,126 @@ async function buildMonitorView(){
 }
 
 function buildMonitorTimetable(){
-  const datesByWeekday={}; monDates.forEach(d=>{ const wd=weekdayName(d); if(!datesByWeekday[wd]) datesByWeekday[wd]=[]; datesByWeekday[wd].push(d); });
-  const headCols=['',''].concat(PERIOD_NUMS.map(p=>`${PERIODS[p].label}<br><small class="muted">${PERIODS[p].time}</small>`));
-  let html='<div class="ttable scroll-x"><table><thead><tr>'+headCols.map(h=>`<th class="nowrap">${h}</th>`).join('')+'</tr></thead><tbody>';
-  WEEKDAYS_EN.forEach(wd=>{
-    const dates=datesByWeekday[wd]||[];
-    const title=WEEKDAY_CN[wd];
-    html+=`<tr><th class="nowrap">${title}</th><td class="muted nowrap">${dates.join('<br>')}</td>`;
-    PERIOD_NUMS.forEach(p=>{
-      const cells=[];
-      let slots=schedule.filter(x=> x.weekday===wd && String(x.period)===String(p));
-      if(monTeacher.value) slots=slots.filter(x=>x.teacher===monTeacher.value);
-      if(monClass.value)   slots=slots.filter(x=>x.class===monClass.value);
-      const recs=getAllRecords().filter(r=> dates.includes(r.date));
-      slots.forEach(s=>{
-        const matched=recs.filter(r=> recordMatchesSlot(r,s));
-        const listText=matched.length ? matched.map(m=> `${m.name_cn}（${m.name_en}）`).join('，') : '';
-        const gtxt=s.group? `（${s.group.toUpperCase()}组）` : '';
-        cells.push(`<div class="slot"><div class="slot-title">${s.class}${gtxt} · ${s.subject}（${s.teacher}）</div><div class="students">${listText || '（无）'}</div></div>`);
-      });
-      html+=`<td class="cell">${cells.join('')||'<span class="muted">—</span>'}</td>`;
+  const dates=monDates.slice().sort();
+  if(!dates.length){
+    monResult.innerHTML='<div class="muted">请先加入至少一个日期。</div>';
+    return;
+  }
+
+  const allRecords=getAllRecords();
+  const sections=dates.map(d=>renderMonitorTimetableForDate(d, allRecords)).filter(Boolean);
+  monResult.innerHTML=sections.join('') || '<div class="muted">无匹配记录。</div>';
+}
+
+function renderMonitorTimetableForDate(date, allRecords){
+  const wd=weekdayName(date);
+  const weekdayLabel=WEEKDAY_CN[wd]||wd;
+  const dayRecords=allRecords.filter(r=>r.date===date);
+
+  if(!schedule.length){
+    if(!dayRecords.length){
+      const msg=monitorDefaultActive ? '暂无缺失学生。' : '无匹配记录。';
+      return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${date}（${weekdayLabel}）：${msg}</div></div>`;
+    }
+    const items=dayRecords.map(r=>`<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${r.name_cn}（${r.name_en}）</div></div>`).join('');
+    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${date}（${weekdayLabel}）</div><div class="cell">${items}</div></div>`;
+  }
+
+  let slots=schedule.filter(x=>x.weekday===wd);
+  if(monTeacher.value) slots=slots.filter(x=>x.teacher===monTeacher.value);
+  if(monClass.value) slots=slots.filter(x=>x.class===monClass.value);
+  slots.sort((a,b)=> a.class.localeCompare(b.class) || (+a.period - +b.period));
+
+  const periodCells=PERIOD_NUMS.map(period=>{
+    const related=slots.filter(s=>String(s.period)===String(period));
+    if(!related.length) return { period, html:'', hasContent:false };
+    const pieces=[];
+    related.forEach(s=>{
+      const matched=dayRecords.filter(r=> recordMatchesSlot(r,s));
+      if(!matched.length && monitorDefaultActive) return;
+      const listText=matched.length ? matched.map(m=>`${m.name_cn}（${m.name_en}）`).join('，') : '（无）';
+      const gtxt=s.group? `（${s.group.toUpperCase()}组）` : '';
+      pieces.push(`<div class="slot"><div class="slot-title">${s.class}${gtxt} · ${s.subject}（${s.teacher||'—'}）</div><div class="students">${listText}</div></div>`);
     });
-    html+='</tr>';
+    const hasContent=pieces.length>0;
+    if(!hasContent && !monitorDefaultActive){
+      pieces.push('<span class="muted">—</span>');
+    }
+    return { period, html:pieces.join(''), hasContent };
   });
-  html+='</tbody></table></div>';
-  monResult.innerHTML=html;
+
+  let activeCells=periodCells;
+  if(monitorDefaultActive){
+    const filtered=periodCells.filter(cell=>cell.hasContent);
+    if(filtered.length) activeCells=filtered;
+  }
+
+  const orphanRecords=dayRecords.filter(r=>{
+    if(monClass.value && r.class!==monClass.value) return false;
+    const ps=parsePeriods(r.period);
+    if(!ps.length) return true;
+    return !slots.some(s=> recordMatchesSlot(r,s));
+  });
+  const orphanPieces=orphanRecords.map(r=>`<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${r.name_cn}（${r.name_en}）</div></div>`);
+
+  const hasGridContent=activeCells.some(cell=>cell.hasContent);
+  const hasOrphan=orphanPieces.length>0;
+
+  if(!hasGridContent && !hasOrphan){
+    const msg=monitorDefaultActive ? '暂无缺失学生。' : '无匹配记录。';
+    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${date}（${weekdayLabel}）：${msg}</div></div>`;
+  }
+
+  let html=`<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${date}（${weekdayLabel}）</div>`;
+  if(hasGridContent){
+    const head=activeCells.map(cell=>`<th class="nowrap">${PERIODS[cell.period].label}<br><small class="muted">${PERIODS[cell.period].time}</small></th>`).join('');
+    const rows=activeCells.map(cell=>`<td class="cell">${cell.html || '<span class="muted">—</span>'}</td>`).join('');
+    html+=`<table><thead><tr><th class="nowrap">星期</th><th class="nowrap">日期</th>${head}</tr></thead><tbody><tr><th class="nowrap">${weekdayLabel}</th><td class="muted nowrap">${date}</td>${rows}</tr></tbody></table>`;
+  }
+  if(hasOrphan){
+    const label=hasGridContent ? '<strong>未匹配课表：</strong>' : '<strong>未匹配课表记录：</strong>';
+    html+=`<div class="cell" style="padding:8px;">${label}${orphanPieces.join('')}</div>`;
+  }
+  html+='</div>';
+  return html;
 }
 
 const monDatesUI = {
   render(){ monDateChips.innerHTML=monDates.map(d=>`<span class="chip">${d}<button class="btn ghost" data-d="${d}">x</button></span>`).join(''); }
 };
-document.getElementById('btnAddMonDate').onclick=()=>{ const d=monDatePicker.value; if(!d) return; if(!monDates.includes(d)){ monDates.push(d); monDates.sort(); } monDatesUI.render(); buildMonitorView(); };
-monDatePicker.addEventListener('change',()=>{ if(autoAddMonDate && autoAddMonDate.checked){ const d=monDatePicker.value; if(!d) return; if(!monDates.includes(d)){ monDates.push(d); monDates.sort(); } monDatesUI.render(); buildMonitorView(); }});
+const markMonitorModified=()=>{ monitorDefaultActive=false; monitorUserModified=true; };
+document.getElementById('btnAddMonDate').onclick=()=>{
+  const d=monDatePicker.value;
+  if(!d) return;
+  markMonitorModified();
+  if(!monDates.includes(d)){ monDates.push(d); monDates.sort(); }
+  monDatesUI.render();
+  buildMonitorView();
+};
+monDatePicker.addEventListener('change',()=>{
+  if(autoAddMonDate && autoAddMonDate.checked){
+    const d=monDatePicker.value;
+    if(!d) return;
+    markMonitorModified();
+    if(!monDates.includes(d)){ monDates.push(d); monDates.sort(); }
+    monDatesUI.render();
+    buildMonitorView();
+  }
+});
 btnAddMonRange.onclick=()=>{
   const a=monDatePickerStart.value, b=monDatePickerEnd.value; if(!a||!b){ alert('请先选择监看起止日期'); return; }
   const start=new Date(a+'T00:00:00'), end=new Date(b+'T00:00:00');
   if(start>end){ alert('起始不能晚于结束'); return; }
   const cur=new Date(start);
+  markMonitorModified();
   while(cur<=end){ const d=fmtDateYMDLocal(cur); if(!monDates.includes(d)) monDates.push(d); cur.setDate(cur.getDate()+1); }
   monDates.sort(); monDatesUI.render(); buildMonitorView();
 };
-monDateChips.addEventListener('click',e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; const d=b.getAttribute('data-d'); monDates=monDates.filter(x=>x!==d); monDatesUI.render(); buildMonitorView(); });
+monDateChips.addEventListener('click',e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; const d=b.getAttribute('data-d'); markMonitorModified(); monDates=monDates.filter(x=>x!==d); monDatesUI.render(); buildMonitorView(); });
 
-monTeacher.addEventListener('change',buildMonitorView);
-monClass.addEventListener('change',buildMonitorView);
-monMode.addEventListener('change',buildMonitorView);
+monTeacher.addEventListener('change',()=>{ markMonitorModified(); buildMonitorView(); });
+monClass.addEventListener('change',()=>{ markMonitorModified(); buildMonitorView(); });
+monMode.addEventListener('change',()=>{ markMonitorModified(); buildMonitorView(); });
 btnMonRefresh.onclick=buildMonitorView;
 
 btnMonExport.onclick=async ()=>{
@@ -922,12 +1183,22 @@ const pageApply=document.getElementById('page-apply');
 const pageRecords=document.getElementById('page-records');
 const pageMonitor=document.getElementById('page-monitor');
 
-function setActiveTab(which){
+async function setActiveTab(which){
   [tabApply,tabRecords,tabMonitor].forEach(t=>t.classList.remove('active'));
   [pageApply,pageRecords,pageMonitor].forEach(p=>p.style.display='none');
   if(which==='apply'){ tabApply.classList.add('active'); pageApply.style.display='block'; }
   if(which==='records'){ tabRecords.classList.add('active'); pageRecords.style.display='block'; refreshTable(); }
-  if(which==='monitor'){ tabMonitor.classList.add('active'); pageMonitor.style.display='block'; buildTeacherClassSelects(); buildMonitorView(); }
+  if(which==='monitor'){
+    tabMonitor.classList.add('active');
+    pageMonitor.style.display='block';
+    buildTeacherClassSelects();
+    await ensureMonitorDefaults();
+    if(monMode.value!=='timetable' && !monitorUserModified){
+      monMode.value='timetable';
+    }
+    monitorDefaultActive = monitorDefaultActive && monMode.value==='timetable';
+    await buildMonitorView();
+  }
 }
 tabApply.onclick=()=>setActiveTab('apply');
 tabRecords.onclick=()=>setActiveTab('records');
