@@ -53,3 +53,56 @@ h1 {
 #outputSection h3 {
   margin: 0.5em 0 0.2em;
 }
+
+.student-item {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 2px 4px 2px 0;
+  border-radius: 4px;
+  background: #eef4ff;
+  cursor: pointer;
+  line-height: 1.5;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.student-item:hover,
+.student-item:focus {
+  background: #dbe6ff;
+}
+
+.student-item:focus {
+  outline: 2px solid #6a8cdb;
+  outline-offset: 2px;
+}
+
+.mon-reason-panel {
+  margin-top: 12px;
+}
+
+.mon-reason-panel .reason-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.mon-reason-panel .reason-meta {
+  margin-top: 4px;
+}
+
+.mon-reason-panel .reason-label {
+  margin-top: 6px;
+}
+
+.mon-reason-panel .reason-body {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.mon-reason-panel .reason-actions {
+  margin-top: 10px;
+  text-align: right;
+}
+
+.mon-reason-panel .reason-actions .btn {
+  min-width: 72px;
+}
