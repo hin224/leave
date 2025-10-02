@@ -920,12 +920,13 @@ function setActiveTab(which){
 tabApply.onclick=()=>setActiveTab('apply');
 tabRecords.onclick=()=>setActiveTab('records');
 tabMonitor.onclick=()=>setActiveTab('monitor');
-</script>
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', loadCoreDataFromSupabase);
 } else {
   loadCoreDataFromSupabase();
 }
+</script>
 
 </body>
 </html>‘
