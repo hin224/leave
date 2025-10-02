@@ -235,6 +235,7 @@
     <div class="muted">说明：① 多日期可同时监看；② 初中（J…）英/马/数分组课严格按 h/i/f 精确匹配；③ 未提供课表将仅显示记录。</div>
   </div>
   <div class="card scroll-x" id="monResult"></div>
+  <div class="card mon-reason-panel" id="monReasonPanel" style="display:none;"></div>
 </div>
 
 <!-- 业务脚本（ESM） -->
@@ -396,6 +397,7 @@ const monTeacher=document.getElementById('monTeacher');
 const monClass=document.getElementById('monClass');
 const monMode=document.getElementById('monMode');
 const monResult=document.getElementById('monResult');
+const monReasonPanel=document.getElementById('monReasonPanel');
 const btnMonRefresh=document.getElementById('btnMonRefresh');
 const btnMonExport=document.getElementById('btnMonExport');
 
@@ -421,6 +423,104 @@ const uniq=arr=>Array.from(new Set(arr));
 const trimLower=s=>(s||'').toString().trim().toLowerCase();
 const isJuniorClass=cls=>/^J/i.test(cls||'');
 const classCodeToCn=cls=>cls||'';
+
+function escapeHtml(str){
+  return (str==null ? '' : String(str))
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function formatStudentName(record){
+  const cn=(record?.name_cn||'').trim();
+  const en=(record?.name_en||'').trim();
+  if(cn && en) return `${cn}（${en}）`;
+  if(cn) return cn;
+  if(en) return en;
+  return record?.id ? `学号 ${record.id}` : '未命名学生';
+}
+
+function formatStudentDisplays(records){
+  if(!Array.isArray(records) || !records.length){
+    return { text:'', html:'' };
+  }
+  const pieces=records.map(rec=>{
+    const display=formatStudentName(rec);
+    const reasonRaw=(rec?.activity||'').toString().trim();
+    const reason=reasonRaw ? reasonRaw : '未提供外出原因。';
+    const deptRaw=(rec?.department_cn||rec?.department_en||'').toString().trim();
+    const attrs=[`data-student="${encodeURIComponent(display)}"`,`data-reason="${encodeURIComponent(reason)}"`];
+    if(deptRaw){ attrs.push(`data-department="${encodeURIComponent(deptRaw)}"`); }
+    return `<span class="student-item" role="button" tabindex="0" ${attrs.join(' ')}>${escapeHtml(display)}</span>`;
+  });
+  return {
+    text:records.map(r=>formatStudentName(r)).join('，'),
+    html:pieces.join('，')
+  };
+}
+
+function decodeDatasetValue(value){
+  if(!value) return '';
+  try {
+    return decodeURIComponent(value);
+  } catch (err) {
+    return value;
+  }
+}
+
+function hideReasonPanel(){
+  if(!monReasonPanel) return;
+  monReasonPanel.style.display='none';
+  monReasonPanel.innerHTML='';
+}
+
+function showStudentReasonPanel(name, reason, department){
+  if(!monReasonPanel) return;
+  const title=document.createElement('div');
+  title.className='reason-title';
+  title.textContent=name||'学生';
+
+  const frag=document.createDocumentFragment();
+  frag.appendChild(title);
+
+  if(department){
+    const meta=document.createElement('div');
+    meta.className='reason-meta muted';
+    meta.textContent=`申请部门：${department}`;
+    frag.appendChild(meta);
+  }
+
+  const label=document.createElement('div');
+  label.className='reason-label muted';
+  label.textContent='外出原因：';
+  frag.appendChild(label);
+
+  const body=document.createElement('div');
+  body.className='reason-body';
+  body.textContent=reason || '未提供外出原因。';
+  frag.appendChild(body);
+
+  const actions=document.createElement('div');
+  actions.className='reason-actions';
+  const closeBtn=document.createElement('button');
+  closeBtn.type='button';
+  closeBtn.className='btn ghost';
+  closeBtn.textContent='关闭';
+  closeBtn.addEventListener('click', hideReasonPanel);
+  actions.appendChild(closeBtn);
+  frag.appendChild(actions);
+
+  monReasonPanel.innerHTML='';
+  monReasonPanel.appendChild(frag);
+  monReasonPanel.style.display='block';
+  try {
+    closeBtn.focus({ preventScroll:true });
+  } catch (err) {
+    closeBtn.focus();
+  }
+}
 
 function parseDepartmentFromPassword(input){
   const raw=(input||'').trim();
@@ -976,10 +1076,19 @@ function buildMonitorRowsForDate(d){
   const recs=getAllRecords().filter(r=>r.date===d);
 
   if(!schedule.length){
-    return recs.map(r=>({
-      date:d, period:r.period||'', class:r.class, group:'',
-      subject:'', teacher:'', students:`${r.name_cn}（${r.name_en}）`
-    }));
+    return recs.map(r=>{
+      const displays=formatStudentDisplays([r]);
+      return {
+        date:d,
+        period:r.period||'',
+        class:r.class,
+        group:'',
+        subject:'',
+        teacher:'',
+        students:displays.text,
+        studentsHtml:displays.html
+      };
+    });
   }
 
   let slots=schedule.filter(x=>x.weekday===wd);
@@ -990,11 +1099,13 @@ function buildMonitorRowsForDate(d){
   const rows=[];
   slots.forEach(s=>{
     const matched=recs.filter(r=> recordMatchesSlot(r,s));
-    const listText=matched.length ? matched.map(m=>`${m.name_cn}（${m.name_en}）`).join('，') : '';
+    const displays=formatStudentDisplays(matched);
     rows.push({
       date:d, period:`第${s.period}节`, class:s.class,
       group:(s.group? s.group.toUpperCase()+'组' : ''), subject:s.subject,
-      teacher:s.teacher, students:listText
+      teacher:s.teacher,
+      students:displays.text,
+      studentsHtml:displays.html
     });
   });
 
@@ -1005,9 +1116,16 @@ function buildMonitorRowsForDate(d){
   });
 
   orphan.forEach(r=>{
+    const displays=formatStudentDisplays([r]);
     rows.push({
-      date:d, period:r.period, class:r.class, group:'',
-      subject:'（无课表）', teacher:'', students:`${r.name_cn}（${r.name_en}）`
+      date:d,
+      period:r.period,
+      class:r.class,
+      group:'',
+      subject:'（无课表）',
+      teacher:'',
+      students:displays.text,
+      studentsHtml:displays.html
     });
   });
 
@@ -1015,6 +1133,7 @@ function buildMonitorRowsForDate(d){
 }
 
 async function buildMonitorView(){
+  hideReasonPanel();
   monResult.innerHTML='';
   if(!monitorDefaultInitialized || !monDates.length){
     await ensureMonitorDefaults();
@@ -1031,7 +1150,7 @@ async function buildMonitorView(){
   if(monMode.value==='cards'){
     const html=allRows.map(r=>`<div class="list" style="margin-bottom:8px;">
       <div><strong>${r.date}</strong>　${r.period}　${r.class} ${r.group?`（${r.group}）`:''}　${r.subject}　<span class="muted">任课：${r.teacher||'—'}</span></div>
-      <div>外出学生：${r.students||'（无）'}</div>
+      <div>外出学生：${r.studentsHtml||'<span class="muted">（无）</span>'}</div>
     </div>`).join('');
     monResult.innerHTML=html || '<div class="muted">无匹配记录。</div>';
     return;
@@ -1045,7 +1164,7 @@ async function buildMonitorView(){
     <td>${r.group||'—'}</td>
     <td>${r.subject||'—'}</td>
     <td>${r.teacher||'—'}</td>
-    <td>${r.students||'（无）'}</td>
+    <td>${r.studentsHtml||'<span class="muted">（无）</span>'}</td>
   </tr>`).join('');
   monResult.innerHTML = `<div class="scroll-x"><table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml||'<tr><td colspan="7" class="muted">无匹配记录</td></tr>'}</tbody></table></div>`;
 }
@@ -1072,7 +1191,10 @@ function renderMonitorTimetableForDate(date, allRecords){
       const msg=monitorDefaultActive ? '暂无缺失学生。' : '无匹配记录。';
       return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${date}（${weekdayLabel}）：${msg}</div></div>`;
     }
-    const items=dayRecords.map(r=>`<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${r.name_cn}（${r.name_en}）</div></div>`).join('');
+    const items=dayRecords.map(r=>{
+      const displays=formatStudentDisplays([r]);
+      return `<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${displays.html||'<span class="muted">（无）</span>'}</div></div>`;
+    }).join('');
     return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${date}（${weekdayLabel}）</div><div class="cell">${items}</div></div>`;
   }
 
@@ -1088,9 +1210,10 @@ function renderMonitorTimetableForDate(date, allRecords){
     related.forEach(s=>{
       const matched=dayRecords.filter(r=> recordMatchesSlot(r,s));
       if(!matched.length && monitorDefaultActive) return;
-      const listText=matched.length ? matched.map(m=>`${m.name_cn}（${m.name_en}）`).join('，') : '（无）';
+      const displays=formatStudentDisplays(matched);
+      const listHtml=displays.html || '<span class="muted">（无）</span>';
       const gtxt=s.group? `（${s.group.toUpperCase()}组）` : '';
-      pieces.push(`<div class="slot"><div class="slot-title">${s.class}${gtxt} · ${s.subject}（${s.teacher||'—'}）</div><div class="students">${listText}</div></div>`);
+      pieces.push(`<div class="slot"><div class="slot-title">${s.class}${gtxt} · ${s.subject}（${s.teacher||'—'}）</div><div class="students">${listHtml}</div></div>`);
     });
     const hasContent=pieces.length>0;
     if(!hasContent && !monitorDefaultActive){
@@ -1111,7 +1234,10 @@ function renderMonitorTimetableForDate(date, allRecords){
     if(!ps.length) return true;
     return !slots.some(s=> recordMatchesSlot(r,s));
   });
-  const orphanPieces=orphanRecords.map(r=>`<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${r.name_cn}（${r.name_en}）</div></div>`);
+  const orphanPieces=orphanRecords.map(r=>{
+    const displays=formatStudentDisplays([r]);
+    return `<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${displays.html||'<span class="muted">（无）</span>'}</div></div>`;
+  });
 
   const hasGridContent=activeCells.some(cell=>cell.hasContent);
   const hasOrphan=orphanPieces.length>0;
@@ -1187,6 +1313,34 @@ btnMonExport.onclick=async ()=>{
   const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='监看视图.csv'; a.click();
 };
+
+function activateStudentReason(target){
+  if(!target) return;
+  const name=decodeDatasetValue(target.dataset.student);
+  const reason=decodeDatasetValue(target.dataset.reason);
+  const department=decodeDatasetValue(target.dataset.department);
+  showStudentReasonPanel(name, reason, department);
+}
+
+monResult.addEventListener('click',event=>{
+  const item=event.target.closest('.student-item');
+  if(!item) return;
+  activateStudentReason(item);
+});
+
+monResult.addEventListener('keydown',event=>{
+  if(event.key!=='Enter' && event.key!==' ') return;
+  if(!(event.target instanceof HTMLElement)) return;
+  if(!event.target.classList.contains('student-item')) return;
+  event.preventDefault();
+  activateStudentReason(event.target);
+});
+
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape' && monReasonPanel && monReasonPanel.style.display!=='none'){
+    hideReasonPanel();
+  }
+});
 
 /***** —— Tab —— *****/
 const tabApply=document.getElementById('tab-apply');
