@@ -880,9 +880,14 @@ btnClear.onclick=async ()=>{
 /***** —— 监看（云端） —— */
 let monCloudCache = [];  // {date, period, student_id, class, name_cn, name_en, activity, department_*, client_ts}
 async function ensureMonitorDefaults(){
-  if(monDates.length){
+  const hasDates = monDates.length>0;
+  if(monitorDefaultInitialized && hasDates){
     monitorDefaultActive = !monitorUserModified && monMode.value==='timetable';
+    return;
+  }
+  if(hasDates){
     monitorDefaultInitialized = true;
+    monitorDefaultActive = !monitorUserModified && monMode.value==='timetable';
     return;
   }
   // 若列表为空则重新尝试加载默认值，即使用户曾经修改过
