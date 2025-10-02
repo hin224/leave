@@ -239,14 +239,12 @@
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
-  // 你的 Supabase 项目参数
+  // 1) 初始化 Supabase（放最前）
   const SUPABASE_URL = "https://ktgrbbzpqfuiprpkbtbk.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0Z3JiYnpwcWZ1aXBycGtidGJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjkzMTQsImV4cCI6MjA3NDkwNTMxNH0.Ik-rT3rqGRx1PUYBd41ZofQf90H0v8vru67dv7ktNvs";
-
-  // 初始化客户端
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  /***** —— 全局变量 —— *****/
+  /***** —— 2) 全局变量 —— *****/
   const SIMPLE_PASSWORD='123456';
   let students=[];     // {id, cn, en, class, pinyin?, eng?, bm?, math?}
   let schedule=[];     // {class, weekday, period, subject, teacher, group?}
@@ -254,14 +252,9 @@
   let applyDates=[];   // 申请多日期
   let monDates=[];     // 监看多日期
 
-  // —— 从 Supabase 读取学生 + 课表到现有数组 ——  
+  /***** —— 3) 从 Supabase 读取学生 + 课表 —— *****/
   async function loadCoreDataFromSupabase() {
     try {
-      // 简单连通性自检（会在控制台看到具体 error）
-      const { data: ping, error: pingErr } = await supabase.from("students").select("id").limit(1);
-      if (pingErr) throw pingErr;
-
-      // students
       const { data: stu, error: e1 } = await supabase
         .from("students")
         .select("id,name_cn,name_en,pinyin,class,group_en,group_bm,group_math")
@@ -278,7 +271,6 @@
         math: (s.group_math || "").toLowerCase(),
       }));
 
-      // timetable
       const { data: tt, error: e2 } = await supabase
         .from("timetable")
         .select("class,weekday,period,subject,teacher,group_tag")
@@ -295,27 +287,24 @@
         group: (x.group_tag || "").toLowerCase(),
       }));
 
-      buildTeacherClassSelects?.();
+      buildTeacherClassSelects();
       console.log(`[Supabase] loaded students=${students.length}, timetable=${schedule.length}`);
     } catch (err) {
       console.error("Load from Supabase failed:", err);
-      alert("从云端加载学生/课表失败：请检查网络或 RLS 权限（详细错误见开发者控制台）。");
+      alert("从云端加载学生/课表失败：请检查控制台日志与 RLS 策略。");
     }
   }
+  document.addEventListener("DOMContentLoaded", loadCoreDataFromSupabase);
 
-  // …………（把你现有的所有函数/事件绑定代码原样放在这里，别改）…………
-  // ✳️ 注意：你页面上已经移除了 CSV 上传输入框，就把这两行删掉或注释
-  // const fileStudents=document.getElementById('fileStudents');
-  // const fileSchedule=document.getElementById('fileSchedule');
+  /***** —— 4) 下面粘贴你现有的业务代码（DOM 绑定、工具函数、监看/记录逻辑等）—— *****/
+  // —— 这里开始就是你上一段第一个 <script type="module"> 里的全部其余代码 —— 
+  // （为省篇幅，此处不重复贴，你原有的：DOM 获取、parsePeriods/weekdayName、renderChips、
+  //  updateConflict、buildTexts、记录页/监看页逻辑、Tab 切换、事件绑定……全部保留。）
+  // 关键点：不要再出现第二次对 students/schedule 的 let 声明；不要再定义第二个 loadCoreDataFromSupabase。
 
-  // DOM 绑定与函数（照你原来那份，粘过来即可）
-  // —— 略 ——（保留你已有的全部函数：renderChips / buildMonitorView / 等等）
+  // === 复制你的业务代码到这里 ===
 
-  // 页面加载自动拉云端
-  document.addEventListener("DOMContentLoaded", () => {
-    loadCoreDataFromSupabase();
-  });
-
+</script>
 /***** —— DOM 绑定 —— *****/
 const idQuick=document.getElementById('idQuick');
 const btnAddById=document.getElementById('btnAddById');
@@ -932,5 +921,11 @@ tabApply.onclick=()=>setActiveTab('apply');
 tabRecords.onclick=()=>setActiveTab('records');
 tabMonitor.onclick=()=>setActiveTab('monitor');
 </script>
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadCoreDataFromSupabase);
+} else {
+  loadCoreDataFromSupabase();
+}
+
 </body>
-</html>
+</html>‘
