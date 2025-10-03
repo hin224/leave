@@ -170,8 +170,7 @@
       </div>
       <div class="grow">
         <button class="btn" id="btnExport">导出筛选CSV</button>
-        <button class="btn ghost" id="btnBulkDelete">按筛选批量删除</button>
-        <button class="btn secondary" id="btnClear">清空全部记录</button>
+        <button class="btn ghost" id="btnDeleteSelected">删除所选记录</button>
       </div>
     </div>
   </div>
@@ -179,6 +178,7 @@
     <table>
       <thead>
         <tr>
+          <th class="nowrap"><input type="checkbox" id="chkAllRecords"/></th>
           <th class="nowrap">日期</th>
           <th class="nowrap">时间段</th>
           <th>学号</th>
@@ -378,12 +378,12 @@ window.addEventListener('beforeunload',event=>{
 
 // 记录区
 const fltDates=document.getElementById('fltDates');
-const fltClass=document.getElementById('fltClass');
-const fltQuery=document.getElementById('fltQuery');
-const tblBody=document.getElementById('tblBody');
-const btnExport=document.getElementById('btnExport');
-const btnBulkDelete=document.getElementById('btnBulkDelete');
-const btnClear=document.getElementById('btnClear');
+  const fltClass=document.getElementById('fltClass');
+  const fltQuery=document.getElementById('fltQuery');
+  const tblBody=document.getElementById('tblBody');
+  const btnExport=document.getElementById('btnExport');
+  const btnDeleteSelected=document.getElementById('btnDeleteSelected');
+  const chkAllRecords=document.getElementById('chkAllRecords');
 
 // 监看区
 const monDatePicker=document.getElementById('monDatePicker');
@@ -912,8 +912,13 @@ async function fetchFilteredRecordsFromCloud(){
 
 async function refreshTable(){
   const list = await fetchFilteredRecordsFromCloud();
-  tblBody.innerHTML = list.map((r,i)=>`
+  tblBody.innerHTML = list.map((r,i)=>{
+    const tsAttr = r.client_ts!=null ? String(r.client_ts) : '';
+    const selectable = r.date && r.student_id && tsAttr;
+    const checkboxAttrs = selectable ? `data-date="${r.date}" data-sid="${r.student_id}" data-ts="${tsAttr}"` : 'disabled';
+    return `
     <tr>
+      <td><input type="checkbox" class="record-select" ${checkboxAttrs}></td>
       <td class="nowrap">${r.date||''}</td>
       <td class="nowrap">${r.period||''}</td>
       <td>${r.student_id||''}</td>
@@ -924,10 +929,43 @@ async function refreshTable(){
       <td>${r.department_cn || r.department_en || ''}</td>
       <td><button class="btn ghost" data-idx="${i}" data-date="${r.date}" data-sid="${r.student_id}" data-ts="${r.client_ts||''}">删除</button></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
+  if(chkAllRecords){
+    chkAllRecords.checked=false;
+    chkAllRecords.indeterminate=false;
+    updateMasterCheckboxState();
+  }
   refreshTable._cache = list;
 }
 [fltDates,fltClass,fltQuery].forEach(el=> el.addEventListener('input',refreshTable));
+
+function updateMasterCheckboxState(){
+  if(!chkAllRecords) return;
+  const boxes=tblBody.querySelectorAll('input.record-select:not([disabled])');
+  if(!boxes.length){
+    chkAllRecords.checked=false;
+    chkAllRecords.indeterminate=false;
+    return;
+  }
+  const checkedCount=[...boxes].filter(box=>box.checked).length;
+  chkAllRecords.checked=checkedCount===boxes.length;
+  chkAllRecords.indeterminate=checkedCount>0 && checkedCount<boxes.length;
+}
+
+if(chkAllRecords){
+  chkAllRecords.addEventListener('change',()=>{
+    const boxes=tblBody.querySelectorAll('input.record-select:not([disabled])');
+    boxes.forEach(box=>{ box.checked=chkAllRecords.checked; });
+    updateMasterCheckboxState();
+  });
+}
+
+tblBody.addEventListener('change',e=>{
+  const cb=e.target.closest('input.record-select');
+  if(!cb) return;
+  updateMasterCheckboxState();
+});
 
 tblBody.addEventListener('click', async e=>{
   const btn = e.target.closest('button[data-idx]');
@@ -958,24 +996,32 @@ btnExport.onclick=()=>{
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='外出申请记录_筛选.csv'; a.click();
 };
 
-btnBulkDelete.onclick=async ()=>{
-  const list = refreshTable._cache || [];
-  if(!list.length){ alert('当前筛选为空，无可删记录'); return; }
-  if(!confirm(`确定删除当前筛选的 ${list.length} 条记录？此操作不可恢复。`)) return;
+btnDeleteSelected.onclick=async ()=>{
+  const selected=[...tblBody.querySelectorAll('input.record-select:checked')];
+  if(!selected.length){ alert('请先选择需要删除的记录'); return; }
+  if(!confirm(`确定删除选中的 ${selected.length} 条记录？此操作不可恢复。`)) return;
 
-  for(const r of list){
-    await supabase.from('applications_flat')
+  for(const cb of selected){
+    const date=cb.getAttribute('data-date');
+    const sid=cb.getAttribute('data-sid');
+    const ts=cb.getAttribute('data-ts');
+    if(!date || !sid || !ts){
+      console.warn('跳过无法定位的记录', { date, sid, ts });
+      continue;
+    }
+    const { error } = await supabase
+      .from('applications_flat')
       .delete()
-      .match({ date: r.date, student_id: r.student_id, client_ts: r.client_ts });
+      .match({ date, student_id: sid, client_ts: Number(ts) });
+    if(error){
+      console.error('删除失败：', error);
+      alert('删除过程中出现错误，部分记录可能未被删除。');
+      refreshTable();
+      return;
+    }
   }
-  alert('已按筛选批量删除。');
-  refreshTable();
-};
 
-btnClear.onclick=async ()=>{
-  if(!confirm('确认清空云端全部记录？')) return;
-  const { error } = await supabase.from('applications_flat').delete().neq('date','');
-  if(error){ console.error(error); alert('清空失败（RLS/权限）'); return; }
+  alert('已删除所选记录。');
   refreshTable();
 };
 
