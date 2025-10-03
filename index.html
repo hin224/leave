@@ -262,6 +262,8 @@
   let monitorDefaultInitialized=false;
   let monitorDefaultActive=false;
   let monitorUserModified=false;
+  let deleteAuthCache=null; // { dept, ts }
+  const DELETE_AUTH_CACHE_MS=10*60*1000; // 10 分钟内复用验证
 
   /***** —— 3) 从 Supabase 读取学生 + 课表 —— *****/
   function buildTeacherClassSelects(){
@@ -535,6 +537,31 @@ function parseDepartmentFromPassword(input){
     }
   }
   return null;
+}
+
+function ensureDeletionAuthorized(actionLabel='删除记录'){
+  const now=Date.now();
+  if(deleteAuthCache && (now-deleteAuthCache.ts)<DELETE_AUTH_CACHE_MS){
+    return deleteAuthCache.dept;
+  }
+
+  if(pwdInp && pwdInp.value){
+    const dept=parseDepartmentFromPassword(pwdInp.value);
+    if(dept){
+      deleteAuthCache={ dept, ts:now };
+      return dept;
+    }
+  }
+
+  const input=prompt(`请输入${actionLabel}密码（同提交密码）：`,'');
+  if(input===null) return null;
+  const dept=parseDepartmentFromPassword(input);
+  if(!dept){
+    alert('密码不正确');
+    return null;
+  }
+  deleteAuthCache={ dept, ts:now };
+  return dept;
 }
 
 function pickStudentGroupKey(subject){
@@ -975,6 +1002,7 @@ tblBody.addEventListener('click', async e=>{
   const ts   = btn.getAttribute('data-ts');
   if(!date || !sid || !ts){ alert('缺少定位字段，无法删除。'); return; }
   if(!confirm(`确认删除：${date} ${sid} 这条记录？`)) return;
+  if(!ensureDeletionAuthorized('删除记录')) return;
 
   const { error } = await supabase
     .from('applications_flat')
@@ -1000,6 +1028,7 @@ btnDeleteSelected.onclick=async ()=>{
   const selected=[...tblBody.querySelectorAll('input.record-select:checked')];
   if(!selected.length){ alert('请先选择需要删除的记录'); return; }
   if(!confirm(`确定删除选中的 ${selected.length} 条记录？此操作不可恢复。`)) return;
+  if(!ensureDeletionAuthorized('删除记录')) return;
 
   for(const cb of selected){
     const date=cb.getAttribute('data-date');
