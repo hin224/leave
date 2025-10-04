@@ -91,15 +91,15 @@
       </label>
     </div>
     <div class="tab-bar" role="tablist">
-      <button type="button" class="tab active" id="tab-apply" data-tab="apply" data-i18n-text="tabApply" role="tab" aria-controls="page-apply" aria-selected="true" tabindex="0">申请</button>
+      <button type="button" class="tab active" id="tab-monitor" data-tab="monitor" data-i18n-text="tabMonitor" role="tab" aria-controls="page-monitor" aria-selected="true" tabindex="0">监看</button>
+      <button type="button" class="tab" id="tab-apply" data-tab="apply" data-i18n-text="tabApply" role="tab" aria-controls="page-apply" aria-selected="false" tabindex="-1">申请</button>
       <button type="button" class="tab" id="tab-records" data-tab="records" data-i18n-text="tabRecords" role="tab" aria-controls="page-records" aria-selected="false" tabindex="-1">记录 / 查看</button>
-      <button type="button" class="tab" id="tab-monitor" data-tab="monitor" data-i18n-text="tabMonitor" role="tab" aria-controls="page-monitor" aria-selected="false" tabindex="-1">监看</button>
     </div>
   </header>
 
   <main class="app-main">
   <!-- 申请页 -->
-  <section id="page-apply" aria-labelledby="tab-apply" role="tabpanel">
+  <section id="page-apply" style="display:none;" aria-labelledby="tab-apply" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -225,7 +225,7 @@
   </section>
 
   <!-- 监看页 -->
-  <section id="page-monitor" style="display:none;" aria-labelledby="tab-monitor" role="tabpanel">
+  <section id="page-monitor" aria-labelledby="tab-monitor" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -2331,12 +2331,44 @@ document.addEventListener('keydown',event=>{
 });
 
 /***** —— Tab —— *****/
+const tabMonitor=document.getElementById('tab-monitor');
 const tabApply=document.getElementById('tab-apply');
 const tabRecords=document.getElementById('tab-records');
-const tabMonitor=document.getElementById('tab-monitor');
 const pageApply=document.getElementById('page-apply');
 const pageRecords=document.getElementById('page-records');
 const pageMonitor=document.getElementById('page-monitor');
+
+const TAB_COOKIE_NAME='leave_active_tab';
+const TAB_COOKIE_MAX_AGE=60*60*24*30; // 30 days
+
+function normalizeTabKey(value){
+  if(!value) return '';
+  const key=String(value).toLowerCase();
+  if(key==='monitor' || key==='apply' || key==='records') return key;
+  return '';
+}
+
+function setTabCookie(value){
+  const key=normalizeTabKey(value);
+  if(!key || typeof document==='undefined') return;
+  try{
+    document.cookie=`${TAB_COOKIE_NAME}=${encodeURIComponent(key)}; max-age=${TAB_COOKIE_MAX_AGE}; path=/; samesite=lax`;
+  }catch(err){ /* ignore cookie errors */ }
+}
+
+function getTabCookie(){
+  if(typeof document==='undefined' || !document.cookie) return '';
+  const pairs=document.cookie.split(';');
+  for(const pair of pairs){
+    const [name,...rest]=pair.trim().split('=');
+    if(name===TAB_COOKIE_NAME){
+      const value=rest.join('=');
+      try{ return normalizeTabKey(decodeURIComponent(value)); }
+      catch(err){ return normalizeTabKey(value); }
+    }
+  }
+  return '';
+}
 
 async function setActiveTab(which){
   [tabApply,tabRecords,tabMonitor].forEach(t=>{
@@ -2360,11 +2392,12 @@ async function setActiveTab(which){
     monitorDefaultActive = monitorDefaultActive && monMode.value==='timetable';
     await buildMonitorView();
   }
+  setTabCookie(which);
 }
 tabApply.addEventListener('click',()=>setActiveTab('apply'));
 tabRecords.addEventListener('click',()=>setActiveTab('records'));
 tabMonitor.addEventListener('click',()=>setActiveTab('monitor'));
-const allTabs=[tabApply,tabRecords,tabMonitor];
+const allTabs=[tabMonitor,tabApply,tabRecords];
 allTabs.forEach(tab=>{
   tab.addEventListener('keydown',event=>{
     if(event.key!=='ArrowRight' && event.key!=='ArrowLeft') return;
@@ -2396,6 +2429,8 @@ if(languageSelect){
   });
 }
 
+const initialTab=getTabCookie() || 'monitor';
+setActiveTab(initialTab);
 setLanguage(getCurrentLanguage(),{ persist:false });
 
 // Supabase 核心数据在模块顶部通过 DOMContentLoaded 注册加载
