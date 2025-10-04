@@ -8,42 +8,57 @@
 
 <style>
   :root{ --blue:#1a73e8;--muted:#777;--danger:#c62828;--border:#e5e5e5; }
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;line-height:1.5}
-  h1{font-size:20px;margin:6px 0 12px}
-  .top-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
-  .tabs{display:flex;gap:8px;flex-wrap:wrap}
-  .tab{padding:6px 10px;border:1px solid #ccc;border-radius:8px;cursor:pointer}
-  .tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-  .lang-switch{display:flex;align-items:center;gap:6px;margin-left:auto}
-  .lang-switch select{min-width:120px}
-  .card{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;background:#fff}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f4f6fb;color:#1f2933;line-height:1.6}
+  .app-shell{max-width:1160px;margin:0 auto;padding:20px 16px 64px}
+  h1{font-size:24px;margin:0;color:#0f172a}
+  .app-header{position:sticky;top:0;background:linear-gradient(180deg,#f4f6fb 0%,rgba(244,246,251,0.9) 100%);backdrop-filter:blur(6px);z-index:50;padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid rgba(15,23,42,.08)}
+  .header-bar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;justify-content:space-between}
+  .tab-bar{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  .tab{padding:8px 14px;border:1px solid #d7deed;border-radius:999px;cursor:pointer;background:#fff;color:#1f2933;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .tab:hover{border-color:var(--blue);color:var(--blue)}
+  .tab.active{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:0 6px 18px rgba(26,115,232,.18)}
+  .lang-switch{display:flex;align-items:center;gap:8px;color:#52616b;font-size:14px}
+  .lang-switch select{min-width:140px;padding:6px 10px;border-radius:999px;border:1px solid #cfd8e3;background:#fff;font-size:14px}
+  .app-main{display:flex;flex-direction:column;gap:18px}
+  .card{border:1px solid #e0e7ff;border-radius:16px;padding:18px;margin-bottom:0;background:#fff;box-shadow:0 18px 36px -24px rgba(15,23,42,.32)}
+  .card + .card{margin-top:16px}
   label{display:inline-block;min-width:88px}
-  input,select,button,textarea{padding:6px 8px;border:1px solid #cfcfcf;border-radius:6px}
+  input,select,button,textarea{padding:8px 10px;border:1px solid #cfd8e3;border-radius:10px;background:#fff;font-size:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,115,232,.12)}
+  button:focus-visible{outline:2px solid rgba(26,115,232,.45);outline-offset:3px}
   .row{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0}
   .grow{flex:1 1 220px}
-  .btn{background:var(--blue);color:#fff;border:none;cursor:pointer}
-  .btn.secondary{background:#555}
-  .btn.ghost{background:#fff;color:#333;border:1px solid #ccc}
+  .btn{background:var(--blue);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease;box-shadow:none}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px -12px rgba(26,115,232,.7)}
+  .btn.secondary{background:#475569}
+  .btn.ghost{background:#fff;color:#1f2933;border:1px solid #cfd8e3}
   .muted{color:var(--muted)}
   .danger{color:var(--danger)}
-  .list{border:1px dashed #ddd;border-radius:6px;padding:8px}
-  .chips{display:flex;flex-wrap:wrap;gap:6px}
-  .chip{border:1px solid #ddd;border-radius:999px;padding:2px 8px;background:#f8f8f8}
-  .chip button{margin-left:6px}
+  .list{border:1px dashed #d7deed;border-radius:12px;padding:12px;background:#f8faff}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1px dashed #d7deed;border-radius:14px;background:#f8faff}
+  .chip{display:inline-flex;align-items:center;border:1px solid #cfd8e3;border-radius:999px;padding:4px 10px;background:#fff;gap:6px;font-size:13px;box-shadow:0 6px 18px -16px rgba(15,23,42,.35)}
+  .chip button{margin-left:0;border:none;background:transparent;color:var(--danger);cursor:pointer;font-weight:600;padding:2px 4px;border-radius:6px;transition:background .15s ease}
+  .chip button:hover{background:rgba(198,40,40,.1)}
   .suggest{position:relative}
-  .suggest-list{position:absolute;z-index:20;background:#fff;border:1px solid #ddd;border-radius:6px;width:100%;max-height:220px;overflow:auto}
-  .suggest-item{padding:6px 8px;cursor:pointer}
-  .suggest-item:hover{background:#f3f6fc}
-  .suggest-item.active{background:#eee}
+  .suggest-list{position:absolute;z-index:20;background:#fff;border:1px solid #d7deed;border-radius:12px;width:100%;max-height:240px;overflow:auto;box-shadow:0 20px 40px -20px rgba(15,23,42,.35);padding:6px}
+  .suggest-item{padding:8px 10px;border-radius:10px;cursor:pointer;transition:background .15s ease,color .15s ease}
+  .suggest-item:hover,.suggest-item.active{background:#f0f6ff;color:#1a73e8}
   #ghostNameHint{color:#aaa;font-size:12px;margin-top:2px}
-  textarea{width:100%;min-height:100px}
-  table{width:100%;border-collapse:collapse}
-  th,td{border-bottom:1px solid #efefef;padding:6px 8px;text-align:left;vertical-align:top}
-  th{position:sticky;top:0;background:#fafafa;z-index:1}
+  textarea{width:100%;min-height:110px;border-radius:14px;resize:vertical}
+  textarea[readonly]{background:#f9fbff}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{border-bottom:1px solid #e8ecf8;padding:10px 12px;text-align:left;vertical-align:top}
+  th{position:sticky;top:0;background:#f0f4ff;z-index:1;font-weight:600;color:#1f2933}
+  tbody tr:nth-child(even){background:#f9fbff}
+  tbody tr:hover{background:#eef4ff}
   .nowrap{white-space:nowrap}
   .pill{display:inline-block;padding:2px 8px;border:1px solid #ccc;border-radius:999px;font-size:12px}
-  .scroll-x{overflow:auto}
+  .scroll-x{overflow:auto;border-radius:16px}
   @media (max-width:640px){
+    .app-shell{padding:16px 12px 48px}
+    h1{font-size:20px}
+    .tab-bar{gap:8px}
+    .tab{flex:1 1 auto}
     label{min-width:72px}
     .row{gap:8px}
     input,select,button,textarea{font-size:16px}
@@ -63,27 +78,28 @@
 </style>
 </head>
 <body>
-
-<h1 id="appTitle" data-i18n-text="appTitle">学生上课外出申请（公假外出）</h1>
-
-<div class="tabs">
-  <div class="top-bar">
-    <div class="tabs">
-      <div class="tab active" id="tab-apply" data-i18n-text="tabApply">申请</div>
-      <div class="tab" id="tab-records" data-i18n-text="tabRecords">记录 / 查看</div>
-      <div class="tab" id="tab-monitor" data-i18n-text="tabMonitor">监看</div>
+<div class="app-shell">
+  <header class="app-header">
+    <div class="header-bar">
+      <h1 id="appTitle" data-i18n-text="appTitle">学生上课外出申请（公假外出）</h1>
+      <label class="lang-switch">
+        <span data-i18n-text="languageLabel">界面语言：</span>
+        <select id="languageSelect">
+          <option value="zh" data-i18n-text="languageOptionZh">简体中文</option>
+          <option value="en" data-i18n-text="languageOptionEn">English</option>
+        </select>
+      </label>
     </div>
-    <label class="lang-switch">
-      <span data-i18n-text="languageLabel">界面语言：</span>
-      <select id="languageSelect">
-        <option value="zh" data-i18n-text="languageOptionZh">简体中文</option>
-        <option value="en" data-i18n-text="languageOptionEn">English</option>
-      </select>
-    </label>
-  </div>
+    <div class="tab-bar" role="tablist">
+      <button type="button" class="tab active" id="tab-apply" data-tab="apply" data-i18n-text="tabApply" role="tab" aria-controls="page-apply" aria-selected="true" tabindex="0">申请</button>
+      <button type="button" class="tab" id="tab-records" data-tab="records" data-i18n-text="tabRecords" role="tab" aria-controls="page-records" aria-selected="false" tabindex="-1">记录 / 查看</button>
+      <button type="button" class="tab" id="tab-monitor" data-tab="monitor" data-i18n-text="tabMonitor" role="tab" aria-controls="page-monitor" aria-selected="false" tabindex="-1">监看</button>
+    </div>
+  </header>
 
-<!-- 申请页 -->
-<div id="page-apply">
+  <main class="app-main">
+  <!-- 申请页 -->
+  <section id="page-apply" aria-labelledby="tab-apply" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -163,10 +179,10 @@
       <label for="pwd" data-i18n-text="labelPassword">密码：</label><input type="password" id="pwd"/>
     </div>
   </div>
-</div>
+  </section>
 
-<!-- 记录/查看页 -->
-<div id="page-records" style="display:none;">
+  <!-- 记录/查看页 -->
+  <section id="page-records" style="display:none;" aria-labelledby="tab-records" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -206,10 +222,10 @@
       <tbody id="tblBody"></tbody>
     </table>
   </div>
-</div>
+  </section>
 
-<!-- 监看页 -->
-<div id="page-monitor" style="display:none;">
+  <!-- 监看页 -->
+  <section id="page-monitor" style="display:none;" aria-labelledby="tab-monitor" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -249,6 +265,9 @@
   </div>
   <div class="card scroll-x" id="monResult"></div>
   <div class="card mon-reason-panel" id="monReasonPanel" style="display:none;"></div>
+  </section>
+
+  </main>
 </div>
 
 <!-- 业务脚本（ESM） -->
@@ -1787,12 +1806,18 @@ const pageRecords=document.getElementById('page-records');
 const pageMonitor=document.getElementById('page-monitor');
 
 async function setActiveTab(which){
-  [tabApply,tabRecords,tabMonitor].forEach(t=>t.classList.remove('active'));
+  [tabApply,tabRecords,tabMonitor].forEach(t=>{
+    t.classList.remove('active');
+    t.setAttribute('aria-selected','false');
+    t.tabIndex=-1;
+  });
   [pageApply,pageRecords,pageMonitor].forEach(p=>p.style.display='none');
-  if(which==='apply'){ tabApply.classList.add('active'); pageApply.style.display='block'; }
-  if(which==='records'){ tabRecords.classList.add('active'); pageRecords.style.display='block'; refreshTable(); }
+  if(which==='apply'){ tabApply.classList.add('active'); tabApply.setAttribute('aria-selected','true'); tabApply.tabIndex=0; pageApply.style.display='block'; }
+  if(which==='records'){ tabRecords.classList.add('active'); tabRecords.setAttribute('aria-selected','true'); tabRecords.tabIndex=0; pageRecords.style.display='block'; refreshTable(); }
   if(which==='monitor'){
     tabMonitor.classList.add('active');
+    tabMonitor.setAttribute('aria-selected','true');
+    tabMonitor.tabIndex=0;
     pageMonitor.style.display='block';
     buildTeacherClassSelects();
     await ensureMonitorDefaults();
@@ -1803,9 +1828,41 @@ async function setActiveTab(which){
     await buildMonitorView();
   }
 }
-tabApply.onclick=()=>setActiveTab('apply');
-tabRecords.onclick=()=>setActiveTab('records');
-tabMonitor.onclick=()=>setActiveTab('monitor');
+tabApply.addEventListener('click',()=>setActiveTab('apply'));
+tabRecords.addEventListener('click',()=>setActiveTab('records'));
+tabMonitor.addEventListener('click',()=>setActiveTab('monitor'));
+const allTabs=[tabApply,tabRecords,tabMonitor];
+allTabs.forEach(tab=>{
+  tab.addEventListener('keydown',event=>{
+    if(event.key!=='ArrowRight' && event.key!=='ArrowLeft') return;
+    event.preventDefault();
+    const dir=event.key==='ArrowRight'?1:-1;
+    const idx=allTabs.indexOf(tab);
+    const next=allTabs[(idx+dir+allTabs.length)%allTabs.length];
+    if(next){
+      next.focus();
+      const target=next.dataset.tab;
+      if(target) setActiveTab(target);
+    }
+  });
+});
+
+onLanguageChange(()=>{
+  try{ buildTeacherClassSelects(); }catch(err){ console.warn('Failed to rebuild teacher/class lists after language change.',err); }
+  try{ updateConflict(); }catch(err){ console.warn('Failed to update conflict notice after language change.',err); }
+  document.querySelectorAll('#tblBody button[data-idx]').forEach(btn=>{ btn.textContent=t('deleteRecords'); });
+  if(pageMonitor && pageMonitor.style.display!=='none'){
+    buildMonitorView();
+  }
+});
+
+if(languageSelect){
+  languageSelect.addEventListener('change',event=>{
+    setLanguage(event.target.value);
+  });
+}
+
+setLanguage(getCurrentLanguage(),{ persist:false });
 
 onLanguageChange(()=>{
   try{ buildTeacherClassSelects(); }catch(err){ console.warn('Failed to rebuild teacher/class lists after language change.',err); }
