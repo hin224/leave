@@ -8,42 +8,57 @@
 
 <style>
   :root{ --blue:#1a73e8;--muted:#777;--danger:#c62828;--border:#e5e5e5; }
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;line-height:1.5}
-  h1{font-size:20px;margin:6px 0 12px}
-  .top-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
-  .tabs{display:flex;gap:8px;flex-wrap:wrap}
-  .tab{padding:6px 10px;border:1px solid #ccc;border-radius:8px;cursor:pointer}
-  .tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-  .lang-switch{display:flex;align-items:center;gap:6px;margin-left:auto}
-  .lang-switch select{min-width:120px}
-  .card{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;background:#fff}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f4f6fb;color:#1f2933;line-height:1.6}
+  .app-shell{max-width:1160px;margin:0 auto;padding:20px 16px 64px}
+  h1{font-size:24px;margin:0;color:#0f172a}
+  .app-header{position:sticky;top:0;background:linear-gradient(180deg,#f4f6fb 0%,rgba(244,246,251,0.9) 100%);backdrop-filter:blur(6px);z-index:50;padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid rgba(15,23,42,.08)}
+  .header-bar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;justify-content:space-between}
+  .tab-bar{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  .tab{padding:8px 14px;border:1px solid #d7deed;border-radius:999px;cursor:pointer;background:#fff;color:#1f2933;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .tab:hover{border-color:var(--blue);color:var(--blue)}
+  .tab.active{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:0 6px 18px rgba(26,115,232,.18)}
+  .lang-switch{display:flex;align-items:center;gap:8px;color:#52616b;font-size:14px}
+  .lang-switch select{min-width:140px;padding:6px 10px;border-radius:999px;border:1px solid #cfd8e3;background:#fff;font-size:14px}
+  .app-main{display:flex;flex-direction:column;gap:18px}
+  .card{border:1px solid #e0e7ff;border-radius:16px;padding:18px;margin-bottom:0;background:#fff;box-shadow:0 18px 36px -24px rgba(15,23,42,.32)}
+  .card + .card{margin-top:16px}
   label{display:inline-block;min-width:88px}
-  input,select,button,textarea{padding:6px 8px;border:1px solid #cfcfcf;border-radius:6px}
+  input,select,button,textarea{padding:8px 10px;border:1px solid #cfd8e3;border-radius:10px;background:#fff;font-size:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,115,232,.12)}
+  button:focus-visible{outline:2px solid rgba(26,115,232,.45);outline-offset:3px}
   .row{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0}
   .grow{flex:1 1 220px}
-  .btn{background:var(--blue);color:#fff;border:none;cursor:pointer}
-  .btn.secondary{background:#555}
-  .btn.ghost{background:#fff;color:#333;border:1px solid #ccc}
+  .btn{background:var(--blue);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease;box-shadow:none}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px -12px rgba(26,115,232,.7)}
+  .btn.secondary{background:#475569}
+  .btn.ghost{background:#fff;color:#1f2933;border:1px solid #cfd8e3}
   .muted{color:var(--muted)}
   .danger{color:var(--danger)}
-  .list{border:1px dashed #ddd;border-radius:6px;padding:8px}
-  .chips{display:flex;flex-wrap:wrap;gap:6px}
-  .chip{border:1px solid #ddd;border-radius:999px;padding:2px 8px;background:#f8f8f8}
-  .chip button{margin-left:6px}
+  .list{border:1px dashed #d7deed;border-radius:12px;padding:12px;background:#f8faff}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1px dashed #d7deed;border-radius:14px;background:#f8faff}
+  .chip{display:inline-flex;align-items:center;border:1px solid #cfd8e3;border-radius:999px;padding:4px 10px;background:#fff;gap:6px;font-size:13px;box-shadow:0 6px 18px -16px rgba(15,23,42,.35)}
+  .chip button{margin-left:0;border:none;background:transparent;color:var(--danger);cursor:pointer;font-weight:600;padding:2px 4px;border-radius:6px;transition:background .15s ease}
+  .chip button:hover{background:rgba(198,40,40,.1)}
   .suggest{position:relative}
-  .suggest-list{position:absolute;z-index:20;background:#fff;border:1px solid #ddd;border-radius:6px;width:100%;max-height:220px;overflow:auto}
-  .suggest-item{padding:6px 8px;cursor:pointer}
-  .suggest-item:hover{background:#f3f6fc}
-  .suggest-item.active{background:#eee}
+  .suggest-list{position:absolute;z-index:20;background:#fff;border:1px solid #d7deed;border-radius:12px;width:100%;max-height:240px;overflow:auto;box-shadow:0 20px 40px -20px rgba(15,23,42,.35);padding:6px}
+  .suggest-item{padding:8px 10px;border-radius:10px;cursor:pointer;transition:background .15s ease,color .15s ease}
+  .suggest-item:hover,.suggest-item.active{background:#f0f6ff;color:#1a73e8}
   #ghostNameHint{color:#aaa;font-size:12px;margin-top:2px}
-  textarea{width:100%;min-height:100px}
-  table{width:100%;border-collapse:collapse}
-  th,td{border-bottom:1px solid #efefef;padding:6px 8px;text-align:left;vertical-align:top}
-  th{position:sticky;top:0;background:#fafafa;z-index:1}
+  textarea{width:100%;min-height:110px;border-radius:14px;resize:vertical}
+  textarea[readonly]{background:#f9fbff}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{border-bottom:1px solid #e8ecf8;padding:10px 12px;text-align:left;vertical-align:top}
+  th{position:sticky;top:0;background:#f0f4ff;z-index:1;font-weight:600;color:#1f2933}
+  tbody tr:nth-child(even){background:#f9fbff}
+  tbody tr:hover{background:#eef4ff}
   .nowrap{white-space:nowrap}
   .pill{display:inline-block;padding:2px 8px;border:1px solid #ccc;border-radius:999px;font-size:12px}
-  .scroll-x{overflow:auto}
+  .scroll-x{overflow:auto;border-radius:16px}
   @media (max-width:640px){
+    .app-shell{padding:16px 12px 48px}
+    h1{font-size:20px}
+    .tab-bar{gap:8px}
+    .tab{flex:1 1 auto}
     label{min-width:72px}
     .row{gap:8px}
     input,select,button,textarea{font-size:16px}
@@ -63,27 +78,28 @@
 </style>
 </head>
 <body>
-
-<h1 id="appTitle" data-i18n-text="appTitle">学生上课外出申请（公假外出）</h1>
-
-<div class="tabs">
-  <div class="top-bar">
-    <div class="tabs">
-      <div class="tab active" id="tab-apply" data-i18n-text="tabApply">申请</div>
-      <div class="tab" id="tab-records" data-i18n-text="tabRecords">记录 / 查看</div>
-      <div class="tab" id="tab-monitor" data-i18n-text="tabMonitor">监看</div>
+<div class="app-shell">
+  <header class="app-header">
+    <div class="header-bar">
+      <h1 id="appTitle" data-i18n-text="appTitle">学生上课外出申请（公假外出）</h1>
+      <label class="lang-switch">
+        <span data-i18n-text="languageLabel">界面语言：</span>
+        <select id="languageSelect">
+          <option value="zh" data-i18n-text="languageOptionZh">简体中文</option>
+          <option value="en" data-i18n-text="languageOptionEn">English</option>
+        </select>
+      </label>
     </div>
-    <label class="lang-switch">
-      <span data-i18n-text="languageLabel">界面语言：</span>
-      <select id="languageSelect">
-        <option value="zh" data-i18n-text="languageOptionZh">简体中文</option>
-        <option value="en" data-i18n-text="languageOptionEn">English</option>
-      </select>
-    </label>
-  </div>
+    <div class="tab-bar" role="tablist">
+      <button type="button" class="tab active" id="tab-apply" data-tab="apply" data-i18n-text="tabApply" role="tab" aria-controls="page-apply" aria-selected="true" tabindex="0">申请</button>
+      <button type="button" class="tab" id="tab-records" data-tab="records" data-i18n-text="tabRecords" role="tab" aria-controls="page-records" aria-selected="false" tabindex="-1">记录 / 查看</button>
+      <button type="button" class="tab" id="tab-monitor" data-tab="monitor" data-i18n-text="tabMonitor" role="tab" aria-controls="page-monitor" aria-selected="false" tabindex="-1">监看</button>
+    </div>
+  </header>
 
-<!-- 申请页 -->
-<div id="page-apply">
+  <main class="app-main">
+  <!-- 申请页 -->
+  <section id="page-apply" aria-labelledby="tab-apply" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -163,10 +179,10 @@
       <label for="pwd" data-i18n-text="labelPassword">密码：</label><input type="password" id="pwd"/>
     </div>
   </div>
-</div>
+  </section>
 
-<!-- 记录/查看页 -->
-<div id="page-records" style="display:none;">
+  <!-- 记录/查看页 -->
+  <section id="page-records" style="display:none;" aria-labelledby="tab-records" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -206,10 +222,10 @@
       <tbody id="tblBody"></tbody>
     </table>
   </div>
-</div>
+  </section>
 
-<!-- 监看页 -->
-<div id="page-monitor" style="display:none;">
+  <!-- 监看页 -->
+  <section id="page-monitor" style="display:none;" aria-labelledby="tab-monitor" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -249,6 +265,9 @@
   </div>
   <div class="card scroll-x" id="monResult"></div>
   <div class="card mon-reason-panel" id="monReasonPanel" style="display:none;"></div>
+  </section>
+
+  </main>
 </div>
 
 <!-- 业务脚本（ESM） -->
@@ -277,6 +296,379 @@
   let monitorUserModified=false;
   let deleteAuthCache=null; // { dept, ts }
   const DELETE_AUTH_CACHE_MS=10*60*1000; // 10 分钟内复用验证
+
+  /***** —— 语言与国际化 —— *****/
+  const translations={
+    zh:{
+      pageTitle:"学生上课外出申请（公假外出）",
+      appTitle:"学生上课外出申请（公假外出）",
+      tabApply:"申请",
+      tabRecords:"记录 / 查看",
+      tabMonitor:"监看",
+      languageLabel:"界面语言：",
+      languageOptionZh:"简体中文",
+      languageOptionEn:"English",
+      labelIdQuick:"学号直达：",
+      btnAddById:"加入名单",
+      labelNameSearch:"姓名模糊搜：",
+      labelIdsBulk:"批量学号：",
+      btnAddBulk:"批量加入名单",
+      btnClearList:"清空名单",
+      labelCurrentList:"本次名单：",
+      labelDateSelect:"日期选择：",
+      hintAutoAddDate:"选择后自动加入",
+      labelStartDate:"起：",
+      labelEndDate:"止：",
+      btnAddDateRange:"加入范围",
+      btnAddSelectedDate:"加入所选",
+      labelPeriod:"时间段：",
+      labelActivity:"活动名称：",
+      btnGenerateText:"生成中英文本",
+      btnSaveToRecords:"保存到记录",
+      labelCnNotice:"中文通知：",
+      labelEnNotice:"English Letter:",
+      btnCopyCn:"复制中文TXT",
+      btnCopyEn:"复制英文TXT",
+      labelSubmitPassword:"提交前简单密码",
+      labelPassword:"密码：",
+      labelFilterDates:"按日期筛选：",
+      btnExportCsv:"导出筛选CSV",
+      btnDeleteSelected:"删除所选记录",
+      labelFilterClass:"按班级筛选：",
+      labelFilterQuery:"快速搜索：",
+      thDate:"日期",
+      thPeriod:"时间段",
+      thStudentId:"学号",
+      thClass:"班级",
+      thNameCn:"中文姓名",
+      thNameEn:"英文姓名",
+      thActivity:"活动",
+      thDepartment:"部门",
+      thActions:"操作",
+      labelMonitorDates:"日期选择：",
+      hintAutoAddMonDate:"选择后自动加入",
+      labelMonitorTeacher:"老师筛选：",
+      labelMonitorClass:"班级筛选：",
+      labelMonitorMode:"显示模式：",
+      optionMonitorTimetable:"时间表",
+      optionMonitorTable:"表格",
+      optionMonitorCards:"卡片",
+      btnMonitorRefresh:"刷新",
+      btnMonitorExport:"导出当前视图CSV",
+      monitorHint:"说明：① 多日期可同时监看；② 初中（J…）英/马/数分组课严格按 h/i/f 精确匹配；③ 未提供课表将仅显示记录。",
+      monitorCardTeacherLabel:"任课：",
+      monitorCardStudentsLabel:"外出学生：",
+      monitorCardNoStudents:"（无）",
+      phIdQuick:"输入学号后回车或点加入",
+      phNameSearch:"中文/英文/拼音…",
+      phIdsBulk:"支持逗号、空格、换行分隔",
+      phPeriod:"如：第3-4节 或 10:00-11:30",
+      phActivity:"如：全州排球赛",
+      phFilterDates:"支持多日期：2025-09-25, 2025-09-26",
+      phFilterClass:"如：J1Z（留空=全部）",
+      phFilterQuery:"学号/中文/英文 关键词",
+      optionAllTeachers:"（全部老师）",
+      optionAllClasses:"（全部班级）",
+      errorLoadCoreData:"加载学生/课表数据失败，请稍后再试。",
+      studentIdLabel:"学号 {id}",
+      unnamedStudent:"未命名学生",
+      reasonFallback:"未提供理由",
+      monitorReasonTitle:"外出学生",
+      monitorDepartmentPrefix:"部门：",
+      reasonLabel:"事由：",
+      btnClose:"关闭",
+      promptDeletionPassword:"请输入{action}密码（同提交密码）：",
+      errorPasswordIncorrect:"密码不正确",
+      errorEnterStudentId:"请先输入学号。",
+      errorStudentNotFound:"未找到该学号的学生。",
+      errorEnterIdsFirst:"请先填写学号。",
+      bulkAddSummaryWithMissing:"成功加入 {count} 人，以下学号未匹配：{missing}",
+      bulkAddSummary:"成功加入 {count} 人。",
+      errorSelectRange:"请先选择起止日期。",
+      errorRangeOrder:"开始日期不能晚于结束日期。",
+      conflictWeekend:"所选日期为周末，无课表。",
+      conflictNoPeriods:"无法识别时间段，请检查格式。",
+      errorNeedList:"请先加入至少一名学生。",
+      errorNeedDate:"请先加入至少一个日期。",
+      errorNeedPeriod:"请输入时间段。",
+      errorNeedActivity:"请输入活动名称。",
+      saveSuccess:"已保存 {count} 条记录。",
+      saveNothing:"没有可保存的记录。",
+      saveFailed:"保存失败，请稍后再试。",
+      copyCnSuccess:"已复制中文文本。",
+      copyEnSuccess:"已复制英文文本。",
+      copyFailed:"复制失败：{message}",
+      copyEnFailed:"复制英文文本失败：{message}",
+      errorFetchRecords:"加载记录失败，请稍后再试。",
+      deleteRecords:"删除记录",
+      errorMissingDeleteKeys:"缺少定位字段，无法删除。",
+      confirmDeleteSingle:"确认删除 {date} {studentId} 这条记录？",
+      errorDeleteFailed:"删除失败，请稍后再试。",
+      errorDeletePartial:"删除过程中出现错误，部分记录可能未被删除。",
+      alertSelectRecords:"请先选择需要删除的记录。",
+      confirmDeleteSelected:"确定删除选中的 {count} 条记录？此操作不可恢复。",
+      successDelete:"已删除所选记录。",
+      exportEmpty:"无可导出的内容。",
+      errorMonitorRange:"请先选择监看起止日期。",
+      errorMonitorNeedDate:"请先加入至少一个监看日期。",
+      errorMonitorFetch:"加载监看数据失败。",
+      monitorNoResults:"无匹配记录。",
+      monitorNoResultsShort:"无匹配记录",
+      monitorNoMissing:"暂无缺失学生。",
+      monitorTablePeriodColumn:"节次/时间",
+      monitorTableGroupColumn:"分组",
+      monitorTableSubjectColumn:"科目",
+      monitorTableTeacherColumn:"任课老师",
+      monitorTableStudentsColumn:"外出学生",
+      monitorTimetableWeekdayHeading:"星期",
+      monitorUnmatchedLabel:"未匹配课表：",
+      monitorUnmatchedRecordsLabel:"未匹配课表记录：",
+      monitorSpecificSlot:"具体时段",
+      monitorNoSchedule:"（无课表）",
+      monitorGroupLabel:"{group}组",
+      monitorPeriodLabel:"第{period}节",
+      monitorExportFilename:"监看视图.csv"
+    },
+    en:{
+      pageTitle:"Student Official Leave Application",
+      appTitle:"Student Official Leave Application",
+      tabApply:"Apply",
+      tabRecords:"Records / Review",
+      tabMonitor:"Monitor",
+      languageLabel:"Interface language:",
+      languageOptionZh:"Simplified Chinese",
+      languageOptionEn:"English",
+      labelIdQuick:"Student ID quick add:",
+      btnAddById:"Add to list",
+      labelNameSearch:"Name search:",
+      labelIdsBulk:"Student IDs (bulk):",
+      btnAddBulk:"Add all to list",
+      btnClearList:"Clear list",
+      labelCurrentList:"Current list:",
+      labelDateSelect:"Pick dates:",
+      hintAutoAddDate:"Auto-add after selecting",
+      labelStartDate:"Start:",
+      labelEndDate:"End:",
+      btnAddDateRange:"Add range",
+      btnAddSelectedDate:"Add selected",
+      labelPeriod:"Time slot:",
+      labelActivity:"Activity name:",
+      btnGenerateText:"Generate CN/EN text",
+      btnSaveToRecords:"Save to records",
+      labelCnNotice:"Chinese notice:",
+      labelEnNotice:"English letter:",
+      btnCopyCn:"Copy Chinese TXT",
+      btnCopyEn:"Copy English TXT",
+      labelSubmitPassword:"Submit password",
+      labelPassword:"Password:",
+      labelFilterDates:"Filter by dates:",
+      btnExportCsv:"Export filtered CSV",
+      btnDeleteSelected:"Delete selected records",
+      labelFilterClass:"Filter by class:",
+      labelFilterQuery:"Quick search:",
+      thDate:"Date",
+      thPeriod:"Period",
+      thStudentId:"Student ID",
+      thClass:"Class",
+      thNameCn:"Name (CN)",
+      thNameEn:"Name (EN)",
+      thActivity:"Activity",
+      thDepartment:"Department",
+      thActions:"Actions",
+      labelMonitorDates:"Pick dates:",
+      hintAutoAddMonDate:"Auto-add after selecting",
+      labelMonitorTeacher:"Filter by teacher:",
+      labelMonitorClass:"Filter by class:",
+      labelMonitorMode:"Display mode:",
+      optionMonitorTimetable:"Timetable",
+      optionMonitorTable:"Table",
+      optionMonitorCards:"Cards",
+      btnMonitorRefresh:"Refresh",
+      btnMonitorExport:"Export current view CSV",
+      monitorHint:"Notes: (1) Multiple dates can be monitored at once. (2) For junior (J...) English/BM/Math split classes, match the h/i/f groups exactly. (3) When no timetable is available, only records are shown.",
+      monitorCardTeacherLabel:"Teacher: ",
+      monitorCardStudentsLabel:"Students: ",
+      monitorCardNoStudents:"(None)",
+      phIdQuick:"Enter student ID then press Enter or Add",
+      phNameSearch:"Chinese/English/Pinyin…",
+      phIdsBulk:"Comma, space or newline separated IDs",
+      phPeriod:"e.g. Period 3-4 or 10:00-11:30",
+      phActivity:"e.g. State volleyball meet",
+      phFilterDates:"Multiple dates allowed: 2025-09-25, 2025-09-26",
+      phFilterClass:"e.g. J1Z (leave empty = all)",
+      phFilterQuery:"Student ID / CN / EN keywords",
+      optionAllTeachers:"All teachers",
+      optionAllClasses:"All classes",
+      errorLoadCoreData:"Failed to load students/timetable. Please try again later.",
+      studentIdLabel:"ID {id}",
+      unnamedStudent:"Unnamed student",
+      reasonFallback:"No reason provided",
+      monitorReasonTitle:"Student",
+      monitorDepartmentPrefix:"Department: ",
+      reasonLabel:"Reason:",
+      btnClose:"Close",
+      promptDeletionPassword:"Enter password for {action} (same as submit password):",
+      errorPasswordIncorrect:"Incorrect password",
+      errorEnterStudentId:"Please enter a student ID first.",
+      errorStudentNotFound:"No student found with that ID.",
+      errorEnterIdsFirst:"Please enter the student IDs first.",
+      bulkAddSummaryWithMissing:"Added {count} students. These IDs were not found: {missing}",
+      bulkAddSummary:"Added {count} students.",
+      errorSelectRange:"Please select start and end dates first.",
+      errorRangeOrder:"Start date cannot be after end date.",
+      conflictWeekend:"Selected date falls on a weekend; no timetable available.",
+      conflictNoPeriods:"Could not parse the time slot. Check the format.",
+      errorNeedList:"Add at least one student first.",
+      errorNeedDate:"Add at least one date first.",
+      errorNeedPeriod:"Enter a time slot.",
+      errorNeedActivity:"Enter the activity name.",
+      saveSuccess:"Saved {count} records.",
+      saveNothing:"Nothing to save.",
+      saveFailed:"Failed to save. Please try again.",
+      copyCnSuccess:"Chinese text copied.",
+      copyEnSuccess:"English text copied.",
+      copyFailed:"Copy failed: {message}",
+      copyEnFailed:"Failed to copy English text: {message}",
+      errorFetchRecords:"Failed to load records. Please try again.",
+      deleteRecords:"Delete record",
+      errorMissingDeleteKeys:"Missing required keys for deletion.",
+      confirmDeleteSingle:"Delete the record for {date} {studentId}?",
+      errorDeleteFailed:"Failed to delete. Please try again.",
+      errorDeletePartial:"An error occurred during deletion; some records may remain.",
+      alertSelectRecords:"Select records to delete first.",
+      confirmDeleteSelected:"Delete the {count} selected records? This action cannot be undone.",
+      successDelete:"Selected records deleted.",
+      exportEmpty:"Nothing to export.",
+      errorMonitorRange:"Select start and end dates for monitoring first.",
+      errorMonitorNeedDate:"Add at least one monitoring date first.",
+      errorMonitorFetch:"Failed to load monitor data.",
+      monitorNoResults:"No matching records.",
+      monitorNoResultsShort:"No matches",
+      monitorNoMissing:"No missing students.",
+      monitorTablePeriodColumn:"Period / Time",
+      monitorTableGroupColumn:"Group",
+      monitorTableSubjectColumn:"Subject",
+      monitorTableTeacherColumn:"Teacher",
+      monitorTableStudentsColumn:"Students out",
+      monitorTimetableWeekdayHeading:"Weekday",
+      monitorUnmatchedLabel:"Not matched to timetable:",
+      monitorUnmatchedRecordsLabel:"Records without timetable match:",
+      monitorSpecificSlot:"Specific time",
+      monitorNoSchedule:"(No timetable)",
+      monitorGroupLabel:"Group {group}",
+      monitorPeriodLabel:"Period {period}",
+      monitorExportFilename:"monitor-view.csv"
+    }
+  };
+  const LANGUAGE_STORAGE_KEY='leave_app_lang';
+  const DEFAULT_LANGUAGE='zh';
+  const FALLBACK_LANGUAGE='zh';
+  const languageChangeCallbacks=new Set();
+
+  function safeStorageGet(key){
+    try{ return localStorage.getItem(key); }
+    catch(err){ return null; }
+  }
+  function safeStorageSet(key,value){
+    try{ localStorage.setItem(key,value); }
+    catch(err){ /* ignore */ }
+  }
+
+  function normalizeLanguageTag(tag){
+    if(!tag) return '';
+    const lower=String(tag).toLowerCase();
+    if(lower.startsWith('zh')) return 'zh';
+    if(lower.startsWith('en')) return 'en';
+    return '';
+  }
+
+  function detectInitialLanguage(){
+    const stored=normalizeLanguageTag(safeStorageGet(LANGUAGE_STORAGE_KEY));
+    if(stored && translations[stored]) return stored;
+    const docLang=normalizeLanguageTag(document?.documentElement?.lang);
+    if(docLang && translations[docLang]) return docLang;
+    const navLang=normalizeLanguageTag((navigator.languages && navigator.languages[0]) || navigator.language);
+    if(navLang && translations[navLang]) return navLang;
+    return DEFAULT_LANGUAGE;
+  }
+
+  function formatTranslation(template,params){
+    if(!params) return template;
+    return template.replace(/\{(\w+)\}/g,(match,key)=>{
+      if(Object.prototype.hasOwnProperty.call(params,key)){
+        const val=params[key];
+        return val==null?'' : String(val);
+      }
+      return match;
+    });
+  }
+
+  let currentLanguage=detectInitialLanguage();
+
+  function t(key,params){
+    const dict=translations[currentLanguage] || {};
+    let template=dict[key];
+    if(template==null){
+      template=translations[FALLBACK_LANGUAGE]?.[key];
+    }
+    if(template==null){
+      return key;
+    }
+    if(params && typeof params==='object'){
+      return formatTranslation(template,params);
+    }
+    return template;
+  }
+
+  function applyTranslationsToDom(){
+    if(typeof document==='undefined') return;
+    document.querySelectorAll('[data-i18n-text]').forEach(el=>{
+      const key=el.getAttribute('data-i18n-text');
+      if(!key) return;
+      el.textContent=t(key);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+      const key=el.getAttribute('data-i18n-placeholder');
+      if(!key) return;
+      const translated=t(key);
+      el.setAttribute('placeholder',translated);
+    });
+    const selectEl=document.getElementById('languageSelect');
+    if(selectEl && selectEl.value!==currentLanguage){
+      selectEl.value=currentLanguage;
+    }
+    document.title=t('pageTitle');
+  }
+
+  function setLanguage(lang,options={}){
+    const { persist=true } = options;
+    let normalized=normalizeLanguageTag(lang);
+    if(!translations[normalized]) normalized=DEFAULT_LANGUAGE;
+    const previous=currentLanguage;
+    currentLanguage=normalized;
+    if(persist){
+      safeStorageSet(LANGUAGE_STORAGE_KEY,currentLanguage);
+    }
+    if(document?.documentElement){
+      document.documentElement.lang=currentLanguage==='zh'?'zh-CN':'en';
+    }
+    applyTranslationsToDom();
+    languageChangeCallbacks.forEach(cb=>{
+      try{ cb(currentLanguage,previous); }
+      catch(err){ console.error('Language change callback failed:',err); }
+    });
+    return currentLanguage;
+  }
+
+  function onLanguageChange(callback){
+    if(typeof callback==='function'){
+      languageChangeCallbacks.add(callback);
+    }
+  }
+
+  function getCurrentLanguage(){
+    return currentLanguage;
+  }
 
   /***** —— 3) 从 Supabase 读取学生 + 课表 —— *****/
   function buildTeacherClassSelects(){
@@ -350,6 +742,7 @@
   // === 复制你的业务代码到这里 ===
 
 /***** —— DOM 绑定 —— *****/
+const languageSelect=document.getElementById('languageSelect');
 const idQuick=document.getElementById('idQuick');
 const btnAddById=document.getElementById('btnAddById');
 const idsBulk=document.getElementById('idsBulk');
@@ -418,20 +811,23 @@ const btnMonExport=document.getElementById('btnMonExport');
 
 // 时间常量
 const PERIODS=[null,
-  {label:'第一节',time:'8:10-8:45'},
-  {label:'第二节',time:'8:45-9:20'},
-  {label:'第三节',time:'9:50-10:25'},
-  {label:'第四节',time:'10:25-11:00'},
-  {label:'第五节',time:'11:10-11:45'},
-  {label:'第六节',time:'11:45-12:20'},
-  {label:'第七节',time:'12:50-13:25'},
-  {label:'第八节',time:'13:25-14:00'},
-  {label:'第九节',time:'14:10-14:45'},
-  {label:'第十节',time:'14:45-15:20'}
+  {label:{zh:'第一节',en:'Period 1'},time:'8:10-8:45'},
+  {label:{zh:'第二节',en:'Period 2'},time:'8:45-9:20'},
+  {label:{zh:'第三节',en:'Period 3'},time:'9:50-10:25'},
+  {label:{zh:'第四节',en:'Period 4'},time:'10:25-11:00'},
+  {label:{zh:'第五节',en:'Period 5'},time:'11:10-11:45'},
+  {label:{zh:'第六节',en:'Period 6'},time:'11:45-12:20'},
+  {label:{zh:'第七节',en:'Period 7'},time:'12:50-13:25'},
+  {label:{zh:'第八节',en:'Period 8'},time:'13:25-14:00'},
+  {label:{zh:'第九节',en:'Period 9'},time:'14:10-14:45'},
+  {label:{zh:'第十节',en:'Period 10'},time:'14:45-15:20'}
 ];
 const PERIOD_NUMS=[1,2,3,4,5,6,7,8,9,10];
 const WEEKDAYS_EN=['Monday','Tuesday','Wednesday','Thursday','Friday'];
-const WEEKDAY_CN={Monday:'星期一',Tuesday:'星期二',Wednesday:'星期三',Thursday:'星期四',Friday:'星期五'};
+const WEEKDAY_LABELS={
+  zh:{Monday:'星期一',Tuesday:'星期二',Wednesday:'星期三',Thursday:'星期四',Friday:'星期五'},
+  en:{Monday:'Monday',Tuesday:'Tuesday',Wednesday:'Wednesday',Thursday:'Thursday',Friday:'Friday'}
+};
 
 /***** —— 工具函数 —— *****/
 const uniq=arr=>Array.from(new Set(arr));
@@ -446,6 +842,46 @@ function escapeHtml(str){
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
+}
+
+function currentLang(){
+  try{ return getCurrentLanguage(); }
+  catch(err){ return DEFAULT_LANGUAGE; }
+}
+
+function getWeekdayLabelLocal(weekday){
+  const lang=currentLang();
+  return (WEEKDAY_LABELS[lang] && WEEKDAY_LABELS[lang][weekday])
+    || (WEEKDAY_LABELS.zh && WEEKDAY_LABELS.zh[weekday])
+    || weekday;
+}
+
+function getPeriodLabelLocal(period){
+  const info=PERIODS[Number(period)];
+  if(info && info.label){
+    return info.label[currentLang()] || info.label.zh || t('monitorPeriodLabel',{period});
+  }
+  return t('monitorPeriodLabel',{period});
+}
+
+function formatMonitorGroup(group){
+  if(!group) return '';
+  const upper=String(group).toUpperCase();
+  return t('monitorGroupLabel',{group:upper});
+}
+
+function wrapGroupDisplay(text){
+  if(!text) return '';
+  return currentLang()==='zh' ? `（${text}）` : ` (${text})`;
+}
+
+function monitorListJoiner(){
+  return currentLang()==='zh' ? '，' : ', ';
+}
+
+function wrapParenthetical(text){
+  if(!text) return '';
+  return currentLang()==='zh' ? `（${text}）` : ` (${text})`;
 }
 
 function formatStudentName(record){
@@ -473,9 +909,10 @@ function formatStudentDisplays(records){
     if(deptRaw){ attrs.push(`data-department="${encodeURIComponent(deptRaw)}"`); }
     return `<span class="student-item" role="button" tabindex="0" ${attrs.join(' ')}>${escapeHtml(display)}</span>`;
   });
+  const joiner=monitorListJoiner();
   return {
-    text:records.map(r=>formatStudentName(r)).join('，'),
-    html:pieces.join('，')
+    text:records.map(r=>formatStudentName(r)).join(joiner),
+    html:pieces.join(joiner)
   };
 }
 
@@ -557,39 +994,29 @@ function parseDepartmentFromPassword(input){
 
 function ensureDeletionAuthorized(actionKey='deleteRecords'){
   const actionLabel = typeof actionKey==='string' ? t(actionKey) : actionKey;
-function ensureDeletionAuthorized(actionLabel='删除记录'){
-  const now=Date.now();
-  if(deleteAuthCache && (now-deleteAuthCache.ts)<DELETE_AUTH_CACHE_MS){
+  const now = Date.now();
+  if(deleteAuthCache && (now - deleteAuthCache.ts) < DELETE_AUTH_CACHE_MS){
     return deleteAuthCache.dept;
   }
 
   if(pwdInp && pwdInp.value){
-    const dept=parseDepartmentFromPassword(pwdInp.value);
+    const dept = parseDepartmentFromPassword(pwdInp.value);
     if(dept){
-      deleteAuthCache={ dept, ts:now };
+      deleteAuthCache = { dept, ts: now };
       return dept;
     }
   }
 
   while(true){
-    const input=prompt(t('promptDeletionPassword',{ action: actionLabel }), '');
+    const input = prompt(t('promptDeletionPassword',{ action: actionLabel }), '');
     if(input===null) return null;
-    const dept=parseDepartmentFromPassword(input);
+    const dept = parseDepartmentFromPassword(input);
     if(dept){
-      deleteAuthCache={ dept, ts:Date.now() };
+      deleteAuthCache = { dept, ts: Date.now() };
       return dept;
     }
     alert(t('errorPasswordIncorrect'));
   }
-  const input=prompt(`请输入${actionLabel}密码（同提交密码）：`,'');
-  if(input===null) return null;
-  const dept=parseDepartmentFromPassword(input);
-  if(!dept){
-    alert('密码不正确');
-    return null;
-  }
-  deleteAuthCache={ dept, ts:now };
-  return dept;
 }
 
 function pickStudentGroupKey(subject){
@@ -1037,9 +1464,6 @@ tblBody.addEventListener('click', async e=>{
   if(!date || !sid || !ts){ alert(t('errorMissingDeleteKeys')); return; }
   if(!confirm(t('confirmDeleteSingle',{ date, studentId:sid }))) return;
   if(!ensureDeletionAuthorized('deleteRecords')) return;
-  if(!date || !sid || !ts){ alert('缺少定位字段，无法删除。'); return; }
-  if(!confirm(`确认删除：${date} ${sid} 这条记录？`)) return;
-  if(!ensureDeletionAuthorized('删除记录')) return;
 
   const { error } = await supabase
     .from('applications_flat')
@@ -1066,9 +1490,6 @@ btnDeleteSelected.onclick=async ()=>{
   if(!selected.length){ alert(t('alertSelectRecords')); return; }
   if(!confirm(t('confirmDeleteSelected',{ count:selected.length }))) return;
   if(!ensureDeletionAuthorized('deleteRecords')) return;
-  if(!selected.length){ alert('请先选择需要删除的记录'); return; }
-  if(!confirm(`确定删除选中的 ${selected.length} 条记录？此操作不可恢复。`)) return;
-  if(!ensureDeletionAuthorized('删除记录')) return;
 
   for(const cb of selected){
     const date=cb.getAttribute('data-date');
@@ -1086,14 +1507,12 @@ btnDeleteSelected.onclick=async ()=>{
     if(error){
       console.error('删除失败：', error);
       alert(t('errorDeletePartial'));
-      alert('删除过程中出现错误，部分记录可能未被删除。');
       refreshTable();
       return;
     }
   }
 
   alert(t('successDelete'));
-  alert('已删除所选记录。');
   refreshTable();
 };
 
@@ -1218,9 +1637,14 @@ function buildMonitorRowsForDate(d){
   slots.forEach(s=>{
     const matched=recs.filter(r=> recordMatchesSlot(r,s));
     const displays=formatStudentDisplays(matched);
+    const periodLabel=getPeriodLabelLocal(s.period);
+    const groupLabel=formatMonitorGroup(s.group);
     rows.push({
-      date:d, period:`第${s.period}节`, class:s.class,
-      group:(s.group? s.group.toUpperCase()+'组' : ''), subject:s.subject,
+      date:d,
+      period:periodLabel,
+      class:s.class,
+      group:groupLabel,
+      subject:s.subject,
       teacher:s.teacher,
       students:displays.text,
       studentsHtml:displays.html
@@ -1237,10 +1661,10 @@ function buildMonitorRowsForDate(d){
     const displays=formatStudentDisplays([r]);
     rows.push({
       date:d,
-      period:r.period,
+      period:r.period || t('monitorSpecificSlot'),
       class:r.class,
       group:'',
-      subject:'（无课表）',
+      subject:t('monitorNoSchedule'),
       teacher:'',
       students:displays.text,
       studentsHtml:displays.html
@@ -1257,7 +1681,10 @@ async function buildMonitorView(){
     await ensureMonitorDefaults();
   }
   monitorDefaultActive = monitorDefaultActive && monMode.value==='timetable';
-  if(!monDates.length){ monResult.innerHTML='<div class="muted">请先加入至少一个日期。</div>'; return; }
+  if(!monDates.length){
+    monResult.innerHTML=`<div class="muted">${escapeHtml(t('errorMonitorNeedDate'))}</div>`;
+    return;
+  }
 
   await loadMonitorRecordsFromCloud();
 
@@ -1266,54 +1693,96 @@ async function buildMonitorView(){
   let allRows=[]; monDates.forEach(d=>{ allRows=allRows.concat(buildMonitorRowsForDate(d)); });
 
   if(monMode.value==='cards'){
-    const html=allRows.map(r=>`<div class="list" style="margin-bottom:8px;">
-      <div><strong>${r.date}</strong>　${r.period}　${r.class} ${r.group?`（${r.group}）`:''}　${r.subject}　<span class="muted">任课：${r.teacher||'—'}</span></div>
-      <div>外出学生：${r.studentsHtml||'<span class="muted">（无）</span>'}</div>
-    </div>`).join('');
-    monResult.innerHTML=html || '<div class="muted">无匹配记录。</div>';
+    const teacherLabel=escapeHtml(t('monitorCardTeacherLabel'));
+    const studentsLabel=escapeHtml(t('monitorCardStudentsLabel'));
+    const emptyStudentsHtml=`<span class="muted">${escapeHtml(t('monitorCardNoStudents'))}</span>`;
+    const html=allRows.map(r=>{
+      const dateText=escapeHtml(r.date||'');
+      const periodText=escapeHtml(r.period||'');
+      const classText=escapeHtml(r.class||'');
+      const groupWrap=r.group ? wrapGroupDisplay(r.group) : '';
+      const groupText=groupWrap ? escapeHtml(groupWrap) : '';
+      const subjectText=escapeHtml(r.subject||'');
+      const subjectDisplay=subjectText || '—';
+      const teacherText=r.teacher ? escapeHtml(r.teacher) : '—';
+      const studentsHtml=r.studentsHtml || emptyStudentsHtml;
+      return `<div class="list" style="margin-bottom:8px;">
+        <div><strong>${dateText}</strong>　${periodText}　${classText}${groupText}　${subjectDisplay}　<span class="muted">${teacherLabel}${teacherText}</span></div>
+        <div>${studentsLabel}${studentsHtml}</div>
+      </div>`;
+    }).join('');
+    monResult.innerHTML=html || `<div class="muted">${escapeHtml(t('monitorNoResults'))}</div>`;
     return;
   }
 
-  const header=['日期','节次/时间','班级','分组','科目','任课老师','外出学生'];
-  const rowsHtml=allRows.map(r=>`<tr>
-    <td class="nowrap">${r.date}</td>
-    <td class="nowrap">${r.period||'—'}</td>
-    <td>${r.class||'—'}</td>
-    <td>${r.group||'—'}</td>
-    <td>${r.subject||'—'}</td>
-    <td>${r.teacher||'—'}</td>
-    <td>${r.studentsHtml||'<span class="muted">（无）</span>'}</td>
-  </tr>`).join('');
-  monResult.innerHTML = `<div class="scroll-x"><table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml||'<tr><td colspan="7" class="muted">无匹配记录</td></tr>'}</tbody></table></div>`;
+  const header=[
+    t('thDate'),
+    t('monitorTablePeriodColumn'),
+    t('thClass'),
+    t('monitorTableGroupColumn'),
+    t('monitorTableSubjectColumn'),
+    t('monitorTableTeacherColumn'),
+    t('monitorTableStudentsColumn')
+  ];
+  const noStudentsCell=`<span class="muted">${escapeHtml(t('monitorCardNoStudents'))}</span>`;
+  const rowsHtml=allRows.map(r=>{
+    const dateCell=escapeHtml(r.date||'');
+    const periodCell=escapeHtml(r.period||'');
+    const classCell=escapeHtml(r.class||'');
+    const groupCell=r.group ? escapeHtml(r.group) : '—';
+    const subjectCell=escapeHtml(r.subject||'');
+    const teacherCell=r.teacher ? escapeHtml(r.teacher) : '—';
+    const studentsCell=r.studentsHtml || noStudentsCell;
+    return `<tr>
+      <td class="nowrap">${dateCell}</td>
+      <td class="nowrap">${periodCell||'—'}</td>
+      <td>${classCell||'—'}</td>
+      <td>${groupCell}</td>
+      <td>${subjectCell||'—'}</td>
+      <td>${teacherCell}</td>
+      <td>${studentsCell}</td>
+    </tr>`;
+  }).join('');
+  const headerHtml=header.map(h=>`<th>${escapeHtml(h)}</th>`).join('');
+  const emptyRow=`<tr><td colspan="7" class="muted">${escapeHtml(t('monitorNoResultsShort'))}</td></tr>`;
+  monResult.innerHTML = `<div class="scroll-x"><table><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml||emptyRow}</tbody></table></div>`;
 }
 
 function buildMonitorTimetable(){
   const dates=monDates.slice().sort();
   if(!dates.length){
-    monResult.innerHTML='<div class="muted">请先加入至少一个日期。</div>';
+    monResult.innerHTML=`<div class="muted">${escapeHtml(t('errorMonitorNeedDate'))}</div>`;
     return;
   }
 
   const allRecords=getAllRecords();
   const sections=dates.map(d=>renderMonitorTimetableForDate(d, allRecords)).filter(Boolean);
-  monResult.innerHTML=sections.join('') || '<div class="muted">无匹配记录。</div>';
+  monResult.innerHTML=sections.join('') || `<div class="muted">${escapeHtml(t('monitorNoResults'))}</div>`;
 }
 
 function renderMonitorTimetableForDate(date, allRecords){
   const wd=weekdayName(date);
-  const weekdayLabel=WEEKDAY_CN[wd]||wd;
+  const weekdayLabel=getWeekdayLabelLocal(wd);
   const dayRecords=allRecords.filter(r=>r.date===date);
+  const dateText=escapeHtml(date||'');
+  const weekdayText=escapeHtml(weekdayLabel);
+  const dateDisplay=`${dateText}${wrapParenthetical(weekdayText)}`;
+  const colonSeparator=currentLang()==='zh' ? '：' : ': ';
+  const noStudentsHtml=`<span class="muted">${escapeHtml(t('monitorCardNoStudents'))}</span>`;
 
   if(!schedule.length){
     if(!dayRecords.length){
-      const msg=monitorDefaultActive ? '暂无缺失学生。' : '无匹配记录。';
-      return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${date}（${weekdayLabel}）：${msg}</div></div>`;
+      const msg=monitorDefaultActive ? t('monitorNoMissing') : t('monitorNoResults');
+      return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${dateDisplay}${colonSeparator}${escapeHtml(msg)}</div></div>`;
     }
     const items=dayRecords.map(r=>{
       const displays=formatStudentDisplays([r]);
-      return `<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${displays.html||'<span class="muted">（无）</span>'}</div></div>`;
+      const classText=escapeHtml(r.class||'');
+      const periodText=escapeHtml(r.period||t('monitorSpecificSlot'));
+      const studentsHtml=displays.html || noStudentsHtml;
+      return `<div class="slot"><div class="slot-title">${classText} · ${periodText}</div><div class="students">${studentsHtml}</div></div>`;
     }).join('');
-    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${date}（${weekdayLabel}）</div><div class="cell">${items}</div></div>`;
+    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${dateDisplay}</div><div class="cell">${items}</div></div>`;
   }
 
   let slots=schedule.filter(x=>x.weekday===wd);
@@ -1329,9 +1798,15 @@ function renderMonitorTimetableForDate(date, allRecords){
       const matched=dayRecords.filter(r=> recordMatchesSlot(r,s));
       if(!matched.length && monitorDefaultActive) return;
       const displays=formatStudentDisplays(matched);
-      const listHtml=displays.html || '<span class="muted">（无）</span>';
-      const gtxt=s.group? `（${s.group.toUpperCase()}组）` : '';
-      pieces.push(`<div class="slot"><div class="slot-title">${s.class}${gtxt} · ${s.subject}（${s.teacher||'—'}）</div><div class="students">${listHtml}</div></div>`);
+      const listHtml=displays.html || noStudentsHtml;
+      const classText=escapeHtml(s.class||'');
+      const groupDisplay=formatMonitorGroup(s.group);
+      const groupWrap=groupDisplay ? escapeHtml(wrapGroupDisplay(groupDisplay)) : '';
+      const subjectText=escapeHtml(s.subject||'');
+      const subjectDisplay=subjectText || '—';
+      const teacherText=escapeHtml(s.teacher||'—');
+      const teacherWrap=wrapParenthetical(teacherText);
+      pieces.push(`<div class="slot"><div class="slot-title">${classText}${groupWrap} · ${subjectDisplay}${teacherWrap}</div><div class="students">${listHtml}</div></div>`);
     });
     const hasContent=pieces.length>0;
     if(!hasContent && !monitorDefaultActive){
@@ -1354,26 +1829,37 @@ function renderMonitorTimetableForDate(date, allRecords){
   });
   const orphanPieces=orphanRecords.map(r=>{
     const displays=formatStudentDisplays([r]);
-    return `<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${displays.html||'<span class="muted">（无）</span>'}</div></div>`;
+    const classText=escapeHtml(r.class||'');
+    const periodText=escapeHtml(r.period||t('monitorSpecificSlot'));
+    const studentsHtml=displays.html || noStudentsHtml;
+    return `<div class="slot"><div class="slot-title">${classText} · ${periodText}</div><div class="students">${studentsHtml}</div></div>`;
   });
 
   const hasGridContent=activeCells.some(cell=>cell.hasContent);
   const hasOrphan=orphanPieces.length>0;
 
   if(!hasGridContent && !hasOrphan){
-    const msg=monitorDefaultActive ? '暂无缺失学生。' : '无匹配记录。';
-    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${date}（${weekdayLabel}）：${msg}</div></div>`;
+    const msg=monitorDefaultActive ? t('monitorNoMissing') : t('monitorNoResults');
+    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${dateDisplay}${colonSeparator}${escapeHtml(msg)}</div></div>`;
   }
 
-  let html=`<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${date}（${weekdayLabel}）</div>`;
+  let html=`<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${dateDisplay}</div>`;
   if(hasGridContent){
-    const head=activeCells.map(cell=>`<th class="nowrap">${PERIODS[cell.period].label}<br><small class="muted">${PERIODS[cell.period].time}</small></th>`).join('');
+    const head=activeCells.map(cell=>{
+      const info=PERIODS[cell.period] || {};
+      const label=getPeriodLabelLocal(cell.period);
+      const time=info.time || '';
+      return `<th class="nowrap">${escapeHtml(label)}<br><small class="muted">${escapeHtml(time)}</small></th>`;
+    }).join('');
     const rows=activeCells.map(cell=>`<td class="cell">${cell.html || '<span class="muted">—</span>'}</td>`).join('');
-    html+=`<table><thead><tr><th class="nowrap">星期</th><th class="nowrap">日期</th>${head}</tr></thead><tbody><tr><th class="nowrap">${weekdayLabel}</th><td class="muted nowrap">${date}</td>${rows}</tr></tbody></table>`;
+    const weekdayHeading=escapeHtml(t('monitorTimetableWeekdayHeading'));
+    const dateHeading=escapeHtml(t('thDate'));
+    html+=`<table><thead><tr><th class="nowrap">${weekdayHeading}</th><th class="nowrap">${dateHeading}</th>${head}</tr></thead><tbody><tr><th class="nowrap">${weekdayText}</th><td class="muted nowrap">${dateText}</td>${rows}</tr></tbody></table>`;
   }
   if(hasOrphan){
-    const label=hasGridContent ? '<strong>未匹配课表：</strong>' : '<strong>未匹配课表记录：</strong>';
-    html+=`<div class="cell" style="padding:8px;">${label}${orphanPieces.join('')}</div>`;
+    const labelText=hasGridContent ? t('monitorUnmatchedLabel') : t('monitorUnmatchedRecordsLabel');
+    const labelHtml=`<strong>${escapeHtml(labelText)}</strong>`;
+    html+=`<div class="cell" style="padding:8px;">${labelHtml}${orphanPieces.join('')}</div>`;
   }
   html+='</div>';
   return html;
@@ -1420,7 +1906,17 @@ btnMonRefresh.onclick=buildMonitorView;
 btnMonExport.onclick=async ()=>{
   if(!monDates.length){ alert(t('errorMonitorNeedDate')); return; }
   await loadMonitorRecordsFromCloud();
-  let lines=['日期,节次/时间,班级,分组,科目,任课老师,外出学生'];
+  const headerCells=[
+    t('thDate'),
+    t('monitorTablePeriodColumn'),
+    t('thClass'),
+    t('monitorTableGroupColumn'),
+    t('monitorTableSubjectColumn'),
+    t('monitorTableTeacherColumn'),
+    t('monitorTableStudentsColumn')
+  ];
+  const headerLine=headerCells.map(s=>`"${(s||'').replace(/"/g,'""')}"`).join(',');
+  let lines=[headerLine];
   monDates.forEach(d=>{
     const rows=buildMonitorRowsForDate(d);
     rows.forEach(r=>{
@@ -1429,7 +1925,7 @@ btnMonExport.onclick=async ()=>{
     });
   });
   const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='监看视图.csv'; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=t('monitorExportFilename'); a.click();
 };
 
 function activateStudentReason(target){
@@ -1469,12 +1965,18 @@ const pageRecords=document.getElementById('page-records');
 const pageMonitor=document.getElementById('page-monitor');
 
 async function setActiveTab(which){
-  [tabApply,tabRecords,tabMonitor].forEach(t=>t.classList.remove('active'));
+  [tabApply,tabRecords,tabMonitor].forEach(t=>{
+    t.classList.remove('active');
+    t.setAttribute('aria-selected','false');
+    t.tabIndex=-1;
+  });
   [pageApply,pageRecords,pageMonitor].forEach(p=>p.style.display='none');
-  if(which==='apply'){ tabApply.classList.add('active'); pageApply.style.display='block'; }
-  if(which==='records'){ tabRecords.classList.add('active'); pageRecords.style.display='block'; refreshTable(); }
+  if(which==='apply'){ tabApply.classList.add('active'); tabApply.setAttribute('aria-selected','true'); tabApply.tabIndex=0; pageApply.style.display='block'; }
+  if(which==='records'){ tabRecords.classList.add('active'); tabRecords.setAttribute('aria-selected','true'); tabRecords.tabIndex=0; pageRecords.style.display='block'; refreshTable(); }
   if(which==='monitor'){
     tabMonitor.classList.add('active');
+    tabMonitor.setAttribute('aria-selected','true');
+    tabMonitor.tabIndex=0;
     pageMonitor.style.display='block';
     buildTeacherClassSelects();
     await ensureMonitorDefaults();
@@ -1485,9 +1987,41 @@ async function setActiveTab(which){
     await buildMonitorView();
   }
 }
-tabApply.onclick=()=>setActiveTab('apply');
-tabRecords.onclick=()=>setActiveTab('records');
-tabMonitor.onclick=()=>setActiveTab('monitor');
+tabApply.addEventListener('click',()=>setActiveTab('apply'));
+tabRecords.addEventListener('click',()=>setActiveTab('records'));
+tabMonitor.addEventListener('click',()=>setActiveTab('monitor'));
+const allTabs=[tabApply,tabRecords,tabMonitor];
+allTabs.forEach(tab=>{
+  tab.addEventListener('keydown',event=>{
+    if(event.key!=='ArrowRight' && event.key!=='ArrowLeft') return;
+    event.preventDefault();
+    const dir=event.key==='ArrowRight'?1:-1;
+    const idx=allTabs.indexOf(tab);
+    const next=allTabs[(idx+dir+allTabs.length)%allTabs.length];
+    if(next){
+      next.focus();
+      const target=next.dataset.tab;
+      if(target) setActiveTab(target);
+    }
+  });
+});
+
+onLanguageChange(()=>{
+  try{ buildTeacherClassSelects(); }catch(err){ console.warn('Failed to rebuild teacher/class lists after language change.',err); }
+  try{ updateConflict(); }catch(err){ console.warn('Failed to update conflict notice after language change.',err); }
+  document.querySelectorAll('#tblBody button[data-idx]').forEach(btn=>{ btn.textContent=t('deleteRecords'); });
+  if(pageMonitor && pageMonitor.style.display!=='none'){
+    buildMonitorView();
+  }
+});
+
+if(languageSelect){
+  languageSelect.addEventListener('change',event=>{
+    setLanguage(event.target.value);
+  });
+}
+
+setLanguage(getCurrentLanguage(),{ persist:false });
 
 // Supabase 核心数据在模块顶部通过 DOMContentLoaded 注册加载
 </script>
