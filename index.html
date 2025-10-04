@@ -286,7 +286,11 @@
     // 如需新增部门，请在此数组增加配置项，并把 passwords 改成该部门专属密码列表
   ];
   let students=[];     // {id, cn, en, class, pinyin?, eng?, bm?, math?}
-  let schedule=[];     // {class, weekday, period, subject, teacher, group?}
+  let schedule=[];     // {class, weekday, period, subject, subject_en?, teacher, teacher_en?, group?, subject_id?, teacher_id?}
+  const subjectsById=new Map();
+  const teachersById=new Map();
+  const subjectEnMapByCn=Object.create(null);
+  const teacherEnMapByCn=Object.create(null);
   let pickList=[];     // {id, cn, en, class}
   let applyDates=[];   // 申请多日期
   let monDates=[];     // 监看多日期
@@ -361,6 +365,7 @@
       monitorCardNoStudents:"（无）",
       phIdQuick:"输入学号后回车或点加入",
       phNameSearch:"中文/英文/拼音…",
+      ghostPreselect:"预选：{id} / {cn} / {en} / {class}",
       phIdsBulk:"支持逗号、空格、换行分隔",
       phPeriod:"如：第3-4节 或 10:00-11:30",
       phActivity:"如：全州排球赛",
@@ -388,6 +393,8 @@
       errorRangeOrder:"开始日期不能晚于结束日期。",
       conflictWeekend:"所选日期为周末，无课表。",
       conflictNoPeriods:"无法识别时间段，请检查格式。",
+      conflictSummaryTitle:"冲堂课程（已按分组精准匹配）",
+      conflictNoLessons:"所选时间段无对应课程。",
       errorNeedList:"请先加入至少一名学生。",
       errorNeedDate:"请先加入至少一个日期。",
       errorNeedPeriod:"请输入时间段。",
@@ -428,6 +435,8 @@
       monitorGroupLabel:"{group}组",
       monitorPeriodLabel:"第{period}节",
       monitorExportFilename:"监看视图.csv"
+      ,
+      exportRecordsFilename:"外出申请记录_筛选.csv"
     },
     en:{
       pageTitle:"Student Official Leave Application",
@@ -491,6 +500,7 @@
       monitorCardNoStudents:"(None)",
       phIdQuick:"Enter student ID then press Enter or Add",
       phNameSearch:"Chinese/English/Pinyin…",
+      ghostPreselect:"Preview: {id} / {cn} / {en} / {class}",
       phIdsBulk:"Comma, space or newline separated IDs",
       phPeriod:"e.g. Period 3-4 or 10:00-11:30",
       phActivity:"e.g. State volleyball meet",
@@ -518,6 +528,8 @@
       errorRangeOrder:"Start date cannot be after end date.",
       conflictWeekend:"Selected date falls on a weekend; no timetable available.",
       conflictNoPeriods:"Could not parse the time slot. Check the format.",
+      conflictSummaryTitle:"Conflicting lessons (matched by split group)",
+      conflictNoLessons:"No scheduled lessons for the selected slot.",
       errorNeedList:"Add at least one student first.",
       errorNeedDate:"Add at least one date first.",
       errorNeedPeriod:"Enter a time slot.",
@@ -557,7 +569,8 @@
       monitorNoSchedule:"(No timetable)",
       monitorGroupLabel:"Group {group}",
       monitorPeriodLabel:"Period {period}",
-      monitorExportFilename:"monitor-view.csv"
+      monitorExportFilename:"monitor-view.csv",
+      exportRecordsFilename:"leave-records_filtered.csv"
     }
   };
   const LANGUAGE_STORAGE_KEY='leave_app_lang';
@@ -690,8 +703,94 @@
   if (carr.includes(curC)) monClass.value = curC;
 }
 
+  const normalizeLookupKey=value=>{
+    if(value==null) return '';
+    const text=String(value).trim();
+    return text;
+  };
+
+  function clearObject(obj){
+    if(!obj) return;
+    Object.keys(obj).forEach(key=>{ delete obj[key]; });
+  }
+
+  function resetLookupCaches(){
+    subjectsById.clear();
+    teachersById.clear();
+    clearObject(subjectEnMapByCn);
+    clearObject(teacherEnMapByCn);
+  }
+
+  function rememberSubjectRecord(record){
+    if(!record) return;
+    const cn=normalizeLookupKey(record.name_cn);
+    const en=normalizeLookupKey(record.name_en);
+    if(record.id!=null){
+      subjectsById.set(record.id,{ cn, en });
+    }
+    if(cn){
+      if(en){
+        subjectEnMapByCn[cn]=en;
+      }else if(!(cn in subjectEnMapByCn)){
+        subjectEnMapByCn[cn]='';
+      }
+    }
+  }
+
+  function rememberTeacherRecord(record){
+    if(!record) return;
+    const cn=normalizeLookupKey(record.name_cn);
+    const en=normalizeLookupKey(record.name_en);
+    if(record.id!=null){
+      teachersById.set(record.id,{ cn, en });
+    }
+    if(cn){
+      if(en){
+        teacherEnMapByCn[cn]=en;
+      }else if(!(cn in teacherEnMapByCn)){
+        teacherEnMapByCn[cn]='';
+      }
+    }
+  }
+
+  function rememberSubjectName(nameCn,nameEn){
+    const cn=normalizeLookupKey(nameCn);
+    if(!cn) return;
+    const en=normalizeLookupKey(nameEn);
+    if(en){
+      subjectEnMapByCn[cn]=en;
+    }else if(!(cn in subjectEnMapByCn)){
+      subjectEnMapByCn[cn]='';
+    }
+  }
+
+  function rememberTeacherName(nameCn,nameEn){
+    const cn=normalizeLookupKey(nameCn);
+    if(!cn) return;
+    const en=normalizeLookupKey(nameEn);
+    if(en){
+      teacherEnMapByCn[cn]=en;
+    }else if(!(cn in teacherEnMapByCn)){
+      teacherEnMapByCn[cn]='';
+    }
+  }
+
+  function getSubjectEnglishName(nameCn){
+    const cn=normalizeLookupKey(nameCn);
+    if(!cn) return '';
+    return subjectEnMapByCn[cn] || '';
+  }
+
+  function getTeacherEnglishName(nameCn){
+    const cn=normalizeLookupKey(nameCn);
+    if(!cn) return '';
+    return teacherEnMapByCn[cn] || '';
+  }
+
   async function loadCoreDataFromSupabase() {
     try {
+      resetLookupCaches();
+
       const { data: stu, error: e1 } = await supabase
         .from("students")
         .select("id,name_cn,name_en,pinyin,class,group_en,group_bm,group_math")
@@ -708,24 +807,129 @@
         math: (s.group_math || "").toLowerCase(),
       }));
 
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from("subjects")
+        .select("id,name_cn,name_en");
+      if (subjectsError) {
+        console.warn("[Supabase] load subjects failed:", subjectsError);
+      } else {
+        (subjectsData || []).forEach(rememberSubjectRecord);
+      }
+
+      const { data: subjectMapData, error: subjectMapError } = await supabase
+        .from("subject_map")
+        .select("name_cn,name_en");
+      if (subjectMapError) {
+        console.warn("[Supabase] load subject_map failed:", subjectMapError);
+      } else {
+        (subjectMapData || []).forEach(row => {
+          rememberSubjectName(row?.name_cn, row?.name_en);
+        });
+      }
+
+      const { data: teachersData, error: teachersError } = await supabase
+        .from("teachers")
+        .select("id,name_cn,name_en");
+      if (teachersError) {
+        console.warn("[Supabase] load teachers failed:", teachersError);
+      } else {
+        (teachersData || []).forEach(rememberTeacherRecord);
+      }
+
+      const linkMap=new Map();
+      const { data: linksData, error: linksError } = await supabase
+        .from("timetable_links")
+        .select("timetable_id,subject_id,teacher_id,subjects(name_cn,name_en),teachers(name_cn,name_en)");
+      if (linksError) {
+        console.warn("[Supabase] load timetable_links failed:", linksError);
+      } else {
+        (linksData || []).forEach(link => {
+          const subjectCnRaw = link?.subjects?.name_cn;
+          const subjectEnRaw = link?.subjects?.name_en;
+          const teacherCnRaw = link?.teachers?.name_cn;
+          const teacherEnRaw = link?.teachers?.name_en;
+          rememberSubjectName(subjectCnRaw, subjectEnRaw);
+          rememberTeacherName(teacherCnRaw, teacherEnRaw);
+
+          const subjectCn = normalizeLookupKey(subjectCnRaw);
+          const subjectEn = normalizeLookupKey(subjectEnRaw);
+          const teacherCn = normalizeLookupKey(teacherCnRaw);
+          const teacherEn = normalizeLookupKey(teacherEnRaw);
+
+          linkMap.set(link.timetable_id, {
+            subject_id: link.subject_id ?? null,
+            teacher_id: link.teacher_id ?? null,
+            subject: (subjectCn || subjectEn) ? { cn: subjectCn, en: subjectEn } : null,
+            teacher: (teacherCn || teacherEn) ? { cn: teacherCn, en: teacherEn } : null,
+          });
+        });
+      }
+
       const { data: tt, error: e2 } = await supabase
         .from("timetable")
-        .select("class,weekday,period,subject,teacher,group_tag")
+        .select("id,class,weekday,period,subject,teacher,group_tag,subject_id,teacher_id")
         .order("class", { ascending: true })
         .order("weekday", { ascending: true })
         .order("period", { ascending: true });
       if (e2) throw e2;
-      schedule = (tt || []).map(x => ({
-        class: (x.class || "").toUpperCase(),
-        weekday: x.weekday,
-        period: String(x.period),
-        subject: x.subject || "",
-        teacher: x.teacher || "",
-        group: (x.group_tag || "").toLowerCase(),
-      }));
+
+      schedule = (tt || []).map(x => {
+        const link = linkMap.get(x.id) || {};
+        const subjectId = coalesceDefined(x.subject_id, link.subject_id);
+        const teacherId = coalesceDefined(x.teacher_id, link.teacher_id);
+        const subjectFromId = subjectId!=null ? subjectsById.get(subjectId) : null;
+        const teacherFromId = teacherId!=null ? teachersById.get(teacherId) : null;
+
+        let subjectCn = firstNonEmpty(
+          x.subject,
+          link.subject?.cn,
+          subjectFromId?.cn
+        );
+        const subjectEn = firstNonEmpty(
+          link.subject?.en,
+          subjectFromId?.en,
+          getSubjectEnglishName(subjectCn)
+        );
+
+        if(!subjectCn && subjectEn){
+          subjectCn = subjectEn;
+        }
+
+        let teacherCn = firstNonEmpty(
+          x.teacher,
+          link.teacher?.cn,
+          teacherFromId?.cn
+        );
+        const teacherEn = firstNonEmpty(
+          link.teacher?.en,
+          teacherFromId?.en,
+          getTeacherEnglishName(teacherCn)
+        );
+
+        if(!teacherCn && teacherEn){
+          teacherCn = teacherEn;
+        }
+
+        rememberSubjectName(subjectCn, subjectEn);
+        rememberTeacherName(teacherCn, teacherEn);
+
+        return {
+          id: x.id,
+          class: (x.class || "").toUpperCase(),
+          weekday: x.weekday,
+          period: String(x.period),
+          subject: subjectCn || "",
+          subject_en: subjectEn || "",
+          teacher: teacherCn || "",
+          teacher_en: teacherEn || "",
+          group: (x.group_tag || "").toLowerCase(),
+          subject_id: subjectId ?? null,
+          teacher_id: teacherId ?? null,
+        };
+      });
 
       buildTeacherClassSelects();
-      console.log(`[Supabase] loaded students=${students.length}, timetable=${schedule.length}`);
+      console.log(`[Supabase] loaded students=${students.length}, timetable=${schedule.length}, subjects=${subjectsById.size}, teachers=${teachersById.size}, links=${linkMap.size}`);
     } catch (err) {
       console.error("Load from Supabase failed:", err);
       alert(t('errorLoadCoreData'));
@@ -834,6 +1038,20 @@ const uniq=arr=>Array.from(new Set(arr));
 const trimLower=s=>(s||'').toString().trim().toLowerCase();
 const isJuniorClass=cls=>/^J/i.test(cls||'');
 const classCodeToCn=cls=>cls||'';
+const coalesceDefined=(...values)=>{
+  for(const value of values){
+    if(value!==undefined && value!==null) return value;
+  }
+  return null;
+};
+const firstNonEmpty=(...values)=>{
+  for(const value of values){
+    if(value==null) continue;
+    const text=String(value).trim();
+    if(text) return text;
+  }
+  return '';
+};
 
 function escapeHtml(str){
   return (str==null ? '' : String(str))
@@ -884,12 +1102,77 @@ function wrapParenthetical(text){
   return currentLang()==='zh' ? `（${text}）` : ` (${text})`;
 }
 
+function joinWithLocale(items, delimiterOptions){
+  const lang=currentLang();
+  if(!Array.isArray(items) || !items.length) return '';
+  const delimiter=(delimiterOptions && delimiterOptions[lang])
+    || (lang==='zh' ? '，' : ', ');
+  return items.join(delimiter);
+}
+
+function formatConflictSlot(slot){
+  if(!slot) return '';
+  const periodLabel=t('monitorPeriodLabel',{ period:slot.period });
+  const subjectDisplay=getSubjectDisplay(slot);
+  const extras=[];
+  const teacherDisplay=getTeacherDisplay(slot);
+  if(teacherDisplay) extras.push(teacherDisplay);
+  if(slot.group){
+    extras.push(t('monitorGroupLabel',{ group:String(slot.group).toUpperCase() }));
+  }
+  const extrasText=extras.length ? wrapParenthetical(joinWithLocale(extras)) : '';
+  const subjectText=subjectDisplay ? ` ${subjectDisplay}` : '';
+  return `${periodLabel}${subjectText}${extrasText}`;
+}
+
+function formatConflictStudentLine(student, lessonsText){
+  if(!student || !lessonsText) return '';
+  const lang=currentLang();
+  const name=lang==='zh'
+    ? firstNonEmpty(student.cn, student.en, student.id)
+    : firstNonEmpty(student.en, student.cn, student.id);
+  const classText=student.class ? (lang==='zh' ? `（${student.class}）` : ` (${student.class})`) : '';
+  const separator=lang==='zh' ? '：' : ': ';
+  return `${name || ''}${classText}${separator}${lessonsText}`;
+}
+
+function getDepartmentDisplay(record){
+  if(!record) return '';
+  const cn=(record.department_cn||'').toString().trim();
+  const en=(record.department_en||'').toString().trim();
+  return currentLang()==='zh' ? (cn || en) : (en || cn);
+}
+
+function getSubjectDisplay(slot){
+  if(!slot) return '';
+  if(currentLang()==='en'){
+    return firstNonEmpty(slot.subject_en, getSubjectEnglishName(slot.subject), slot.subject);
+  }
+  return slot.subject || '';
+}
+
+function getTeacherDisplay(slot){
+  if(!slot) return '';
+  if(currentLang()==='en'){
+    return firstNonEmpty(slot.teacher_en, getTeacherEnglishName(slot.teacher), slot.teacher);
+  }
+  return slot.teacher || '';
+}
+
 function formatStudentName(record){
   const cn=(record?.name_cn||'').trim();
   const en=(record?.name_en||'').trim();
-  if(cn && en) return `${cn}（${en}）`;
-  if(cn) return cn;
-  if(en) return en;
+  const lang=currentLang();
+  if(cn && en){
+    return lang==='zh' ? `${cn}（${en}）` : `${en} (${cn})`;
+  }
+  if(lang==='zh'){
+    if(cn) return cn;
+    if(en) return en;
+  }else{
+    if(en) return en;
+    if(cn) return cn;
+  }
   if(record?.id){
     return t('studentIdLabel',{ id: record.id });
   }
@@ -904,7 +1187,7 @@ function formatStudentDisplays(records){
     const display=formatStudentName(rec);
     const reasonRaw=(rec?.activity||'').toString().trim();
     const reason=reasonRaw ? reasonRaw : t('reasonFallback');
-    const deptRaw=(rec?.department_cn||rec?.department_en||'').toString().trim();
+    const deptRaw=getDepartmentDisplay(rec);
     const attrs=[`data-student="${encodeURIComponent(display)}"`,`data-reason="${encodeURIComponent(reason)}"`];
     if(deptRaw){ attrs.push(`data-department="${encodeURIComponent(deptRaw)}"`); }
     return `<span class="student-item" role="button" tabindex="0" ${attrs.join(' ')}>${escapeHtml(display)}</span>`;
@@ -1062,7 +1345,10 @@ function fmtDateYMDLocal(d){
 
 /***** —— 名单 chips —— *****/
 function renderChips(){
-  chips.innerHTML=pickList.map(s=>`<span class="chip">${s.id} ${s.cn}（${s.en}）<button class="btn ghost" data-id="${s.id}">x</button></span>`).join('');
+  chips.innerHTML=pickList.map(s=>{
+    const display=formatStudentName({ name_cn:s.cn, name_en:s.en, id:s.id });
+    return `<span class="chip">${escapeHtml(String(s.id||''))} ${escapeHtml(display)}<button class="btn ghost" data-id="${escapeHtml(String(s.id||''))}">x</button></span>`;
+  }).join('');
   updateConflict();
   updateUnsavedState();
 }
@@ -1117,7 +1403,12 @@ function renderSuggest(list){
   if(highlightIndex<0||highlightIndex>=list.length) highlightIndex=0;
   suggestList.innerHTML=list.map((s,i)=>`<div class="suggest-item ${i===highlightIndex?'active':''}" data-idx="${i}" data-id="${s.id}">${s.id} / ${s.cn} / ${s.en} / ${s.class} ${s.pinyin?(' / '+s.pinyin):''}</div>`).join('');
   suggestList.style.display='block';
-  const g=list[highlightIndex]; if(ghostNameHint){ ghostNameHint.textContent=g?`预选：${g.id} / ${g.cn} / ${g.en} / ${g.class}`:''; }
+    const g=list[highlightIndex];
+    if(ghostNameHint){
+      ghostNameHint.textContent = g
+        ? t('ghostPreselect',{ id:g.id||'', cn:g.cn||'', en:g.en||'', class:g.class||'' })
+        : '';
+    }
 }
 function moveHighlight(delta){ if(!candidates.length) return; highlightIndex=(highlightIndex+delta+candidates.length)%candidates.length; renderSuggest(candidates); }
 nameCn.addEventListener('input',()=>{
@@ -1205,9 +1496,21 @@ function updateConflict(){
     const stu=students.find(x=>x.id===sel.id); if(!stu) return;
     const hits=schedule.filter(x=> x.class===sel.class && x.weekday===wd && ps.includes(String(x.period)));
     const filtered=hits.filter(h=>{ const gkey=pickStudentGroupKey(h.subject); if(isJuniorClass(sel.class) && gkey && h.group){ return (stu[gkey]||'').toLowerCase()===h.group.toLowerCase(); } return true; });
-    if(filtered.length){ const msg=filtered.map(h=>`第${h.period}节 ${h.subject}（${h.teacher}${h.group?('，'+h.group.toUpperCase()+'组'):''}）`).join('，'); lines.push(`${sel.cn}（${sel.class}）：${msg}`); }
+    if(filtered.length){
+      const lessons=joinWithLocale(filtered.map(formatConflictSlot),{ zh:'，', en:'; ' });
+      const line=formatConflictStudentLine(sel, lessons);
+      if(line) lines.push(line);
+    }
   });
-  conflictDiv.innerHTML = lines.length ? `<span class="danger">冲堂课程（已按分组精准匹配）：</span>${lines.join('；')}` : '所选时间段无对应课程。';
+  if(!lines.length){
+    conflictDiv.textContent=t('conflictNoLessons');
+    return;
+  }
+  const prefix=escapeHtml(t('conflictSummaryTitle'));
+  const separator=currentLang()==='zh' ? '：' : ': ';
+  const joiner=currentLang()==='zh' ? '；' : '; ';
+  const body=lines.map(line=>escapeHtml(line)).join(joiner);
+  conflictDiv.innerHTML=`<span class="danger">${prefix}</span>${separator}${body}`;
 }
 periodInp.oninput=updateConflict;
 
@@ -1231,26 +1534,37 @@ function buildTexts(){
     const wd=weekdayName(d), ps=parsePeriods(periodText);
     let missCn='', missEn='';
     if(schedule.length && ps.length){
-      const lines=[]; pickList.forEach(sel=>{
+      const linesCn=[];
+      const linesEn=[];
+      pickList.forEach(sel=>{
         const stu=students.find(x=>x.id===sel.id); if(!stu) return;
         const hits=schedule.filter(x=> x.class===sel.class && x.weekday===wd && ps.includes(String(x.period)));
         const filtered=hits.filter(h=>{ const gkey=pickStudentGroupKey(h.subject); if(isJuniorClass(sel.class) && gkey && h.group){ return (stu[gkey]||'').toLowerCase()===h.group.toLowerCase(); } return true; });
-        if(filtered.length){ const msg=filtered.map(h=>`第${h.period}节 ${h.subject}（${h.teacher}${h.group?('，'+h.group.toUpperCase()+'组'):''}）`).join('，'); lines.push(`${sel.cn}（${sel.class}）：${msg}`); }
+        if(filtered.length){
+          const msgCn=filtered.map(h=>`第${h.period}节 ${h.subject}（${h.teacher}${h.group?('，'+h.group.toUpperCase()+'组'):''}）`).join('，');
+          linesCn.push(`${sel.cn}（${sel.class}）：${msgCn}`);
+
+          const msgEnParts=filtered.map(h=>{
+            const subjectLabel=firstNonEmpty(h.subject_en, getSubjectEnglishName(h.subject), h.subject);
+            const teacherLabel=firstNonEmpty(h.teacher_en, getTeacherEnglishName(h.teacher), h.teacher);
+            const extras=[];
+            if(teacherLabel) extras.push(teacherLabel);
+            if(h.group) extras.push(`Group ${String(h.group).toUpperCase()}`);
+            let base=`Period ${h.period}`;
+            if(subjectLabel){
+              base+=` ${subjectLabel}`;
+            }
+            if(extras.length){
+              base+=` (${extras.join(', ')})`;
+            }
+            return base;
+          });
+          const studentLabelEn=`${firstNonEmpty(sel.en, sel.cn, sel.id)} (${sel.class})`;
+          linesEn.push(`${studentLabelEn}: ${msgEnParts.join(', ')}`);
+        }
       });
-      missCn=lines.join('；');
-      if(missCn){
-        const subjMap={"语文":"Chinese","英语":"English","数学":"Mathematics","科学":"Science","历史":"History","地理":"Geography","美术":"Art","体育":"P.E."};
-        missEn=missCn.split('；').map(seg=>{
-          const m=seg.match(/^(.*?)(：)(.+)$/); if(!m) return seg;
-          const person=m[1], rest=m[3];
-          const parts=rest.split('，').map(p=>{
-            const mm=p.match(/^第(\d+)节\s*(\S+)（(.+?)）$/); if(!mm) return p;
-            const pno=mm[1], subj=mm[2], t=mm[3];
-            return `Period ${pno} ${(subjMap[subj]||subj)} (${t})`;
-          }).join(', ');
-          return `${person}: ${parts}`;
-        }).join(' ; ');
-      }
+      missCn=linesCn.join('；');
+      missEn=linesEn.join(' ; ');
     }
 
     const cn=`校长、老师们好：
@@ -1292,70 +1606,103 @@ document.getElementById('btnGenText').onclick=()=>{
   outBox.style.display='block'; outCn.value=t.cn; outEn.value=t.en;
 };
 
-document.getElementById('btnSave').onclick = async () => {
-  const t = buildTexts();
-  if (!t) return;
+async function saveCurrentApplication(options={}){
+  const { force=false, silent=false } = options;
+  const t=buildTexts();
+  if(!t) return null;
 
-  try {
-    const base = {
-      period: (periodInp.value || '').trim(),
-      activity: (activityInp.value || '').trim(),
-      department_cn: t.dept?.cn || '',
-      department_en: t.dept?.en || '',
-      department_code: t.dept?.code || ''
+  outBox.style.display='block';
+  outCn.value=t.cn;
+  outEn.value=t.en;
+
+  if(!force && !hasUnsavedChanges){
+    return { text:t, saved:false };
+  }
+
+  try{
+    const base={
+      period:(periodInp.value||'').trim(),
+      activity:(activityInp.value||'').trim(),
+      department_cn:t.dept?.cn||'',
+      department_en:t.dept?.en||'',
+      department_code:t.dept?.code||''
     };
-    const nowTs = Date.now();
-    const rows = [];
-    applyDates.forEach(d => {
-      pickList.forEach(s => {
+    const nowTs=Date.now();
+    const rows=[];
+    applyDates.forEach(d=>{
+      pickList.forEach(s=>{
         rows.push({
-          date: d,
-          period: base.period,
-          student_id: s.id,
-          class: s.class,
-          name_cn: s.cn,
-          name_en: s.en,
-          activity: base.activity,
-          department_cn: base.department_cn,
-          department_en: base.department_en,
-          department_code: base.department_code,
-          client_ts: nowTs, // 统一批次标识
+          date:d,
+          period:base.period,
+          student_id:s.id,
+          class:s.class,
+          name_cn:s.cn,
+          name_en:s.en,
+          activity:base.activity,
+          department_cn:base.department_cn,
+          department_en:base.department_en,
+          department_code:base.department_code,
+          client_ts:nowTs,
         });
       });
     });
 
-    if (rows.length) {
-      const rowsForInsert = rows.map(r => ({ ...r }));
-      const { error } = await supabase.from("applications_flat").insert(rowsForInsert);
-      if (error) {
-        const msg = (error.message || '').toLowerCase();
-        if (msg.includes('column') && msg.includes('department')) {
-          const stripped = rowsForInsert.map(({ department_cn, department_en, department_code, ...rest }) => rest);
-          const retry = await supabase.from("applications_flat").insert(stripped);
-          if (retry.error) throw retry.error;
-        } else {
-          throw error;
-        }
-      }
-
-      // —— 可选兜底：也写入本地（断网时仍能用“记录/监看”离线导出）
-      const allLocal = JSON.parse(localStorage.getItem('leave_records')||'[]');
-      rows.forEach(r => allLocal.push({ ...r, ts: r.client_ts }));
-      localStorage.setItem('leave_records', JSON.stringify(allLocal));
-
-      resetUnsavedState();
-      alert(t('saveSuccess',{ count:rows.length }));
-    } else {
-      alert(t('saveNothing'));
+    if(!rows.length){
+      if(!silent) alert(t('saveNothing'));
+      return { text:t, saved:false };
     }
-  } catch (e) {
-    console.error("Save to Supabase failed:", e);
-    alert(t('saveFailed'));
+
+    const rowsForInsert=rows.map(r=>({ ...r }));
+    let { error } = await supabase.from('applications_flat').insert(rowsForInsert);
+    if(error){
+      const msg=(error.message||'').toLowerCase();
+      if(msg.includes('column') && msg.includes('department')){
+        const stripped=rowsForInsert.map(({ department_cn, department_en, department_code, ...rest })=>rest);
+        const retry=await supabase.from('applications_flat').insert(stripped);
+        if(retry.error) throw retry.error;
+      }else{
+        throw error;
+      }
+    }
+
+    const allLocal=JSON.parse(localStorage.getItem('leave_records')||'[]');
+    rows.forEach(r=>allLocal.push({ ...r, ts:r.client_ts }));
+    localStorage.setItem('leave_records', JSON.stringify(allLocal));
+
+    resetUnsavedState();
+    if(!silent) alert(t('saveSuccess',{ count:rows.length }));
+    return { text:t, saved:true };
+  }catch(e){
+    console.error('Save to Supabase failed:', e);
+    if(!silent) alert(t('saveFailed'));
+    return null;
   }
+}
+
+document.getElementById('btnSave').onclick=async()=>{
+  await saveCurrentApplication({ force:true });
 };
 
-btnCopyCn.onclick=async()=>{ try{ await navigator.clipboard.writeText(outCn.value||''); alert(t('copyCnSuccess')); }catch(e){ alert(t('copyFailed',{ message:e.message||'' })); } };
-btnCopyEn.onclick=async()=>{ try{ await navigator.clipboard.writeText(outEn.value||''); alert(t('copyEnSuccess')); }catch(e){ alert(t('copyEnFailed',{ message:e.message||'' })); } };
+btnCopyCn.onclick=async()=>{
+  const result=await saveCurrentApplication({ silent:true });
+  if(!result) return;
+  try{
+    await navigator.clipboard.writeText(result.text.cn||'');
+    alert(t('copyCnSuccess'));
+  }catch(e){
+    alert(t('copyFailed',{ message:e.message||'' }));
+  }
+};
+btnCopyEn.onclick=async()=>{
+  const result=await saveCurrentApplication({ silent:true });
+  if(!result) return;
+  try{
+    await navigator.clipboard.writeText(result.text.en||'');
+    alert(t('copyEnSuccess'));
+  }catch(e){
+    alert(t('copyEnFailed',{ message:e.message||'' }));
+  }
+};
 
 /***** —— 记录页（云端读写） —— */
 function parseDatesMulti(text){ return (text||'').split(/[^0-9-]+/).map(s=>s.trim()).filter(Boolean); }
@@ -1414,7 +1761,7 @@ async function refreshTable(){
       <td>${r.name_cn||''}</td>
       <td>${r.name_en||''}</td>
       <td>${r.activity||''}</td>
-      <td>${r.department_cn || r.department_en || ''}</td>
+      <td>${getDepartmentDisplay(r)}</td>
       <td><button class="btn ghost" data-idx="${i}" data-date="${r.date}" data-sid="${r.student_id}" data-ts="${r.client_ts||''}">${escapeHtml(t('deleteRecords'))}</button></td>
     </tr>
   `;
@@ -1477,12 +1824,30 @@ tblBody.addEventListener('click', async e=>{
 btnExport.onclick=()=>{
   const list = refreshTable._cache || [];
   if(!list.length){ alert(t('exportEmpty')); return; }
-  const header=['日期','时间段','学号','班级','中文姓名','英文姓名','活动','部门'];
+  const header=[
+    t('thDate'),
+    t('thPeriod'),
+    t('thStudentId'),
+    t('thClass'),
+    t('thNameCn'),
+    t('thNameEn'),
+    t('thActivity'),
+    t('thDepartment')
+  ];
   const lines=[header.join(',')].concat(
-    list.map(r=>[ r.date,r.period,r.student_id,r.class,r.name_cn,r.name_en,r.activity,(r.department_cn||r.department_en||'') ].map(s=>`"${(s||'').toString().replace(/"/g,'""')}"`).join(','))
+    list.map(r=>[
+      r.date,
+      r.period,
+      r.student_id,
+      r.class,
+      r.name_cn,
+      r.name_en,
+      r.activity,
+      getDepartmentDisplay(r)
+    ].map(s=>`"${(s||'').toString().replace(/"/g,'""')}"`).join(','))
   );
   const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='外出申请记录_筛选.csv'; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=t('exportRecordsFilename'); a.click();
 };
 
 btnDeleteSelected.onclick=async ()=>{
@@ -1496,7 +1861,7 @@ btnDeleteSelected.onclick=async ()=>{
     const sid=cb.getAttribute('data-sid');
     const ts=cb.getAttribute('data-ts');
     if(!date || !sid || !ts){
-      console.warn('跳过无法定位的记录', { date, sid, ts });
+      console.warn('[records] Skipping entry without identifiers', { date, sid, ts });
       alert(t('errorMissingDeleteKeys'));
       continue;
     }
@@ -1505,7 +1870,7 @@ btnDeleteSelected.onclick=async ()=>{
       .delete()
       .match({ date, student_id: sid, client_ts: Number(ts) });
     if(error){
-      console.error('删除失败：', error);
+      console.error('[records] Delete failed:', error);
       alert(t('errorDeletePartial'));
       refreshTable();
       return;
@@ -1541,19 +1906,24 @@ async function ensureMonitorDefaults(){
       .order('date', { ascending: true });
     if (error) throw error;
     const list = Array.from(new Set((data||[]).map(item => item.date).filter(Boolean))).sort();
-    if (list.length) {
-      monDates = list;
+    const todayStr = new Date().toISOString().slice(0,10);
+    const upcoming = list.filter(d => d >= todayStr);
+    const effective = upcoming.length ? upcoming : [];
+    if (effective.length) {
+      monDates = effective;
       monDatesUI.render();
       monMode.value = 'timetable';
       monitorDefaultActive = true;
       monitorDefaultInitialized = true;
       monitorUserModified = false;
     } else {
+      monDates = [];
+      monDatesUI.render();
       monitorDefaultActive = false;
-      monitorDefaultInitialized = false;
+      monitorDefaultInitialized = true;
     }
   } catch (err) {
-    console.error('加载监看默认日期失败：', err);
+    console.error('[monitor] Failed to load default dates:', err);
     monitorDefaultActive = false;
     monitorDefaultInitialized = false;
   }
@@ -1639,13 +2009,15 @@ function buildMonitorRowsForDate(d){
     const displays=formatStudentDisplays(matched);
     const periodLabel=getPeriodLabelLocal(s.period);
     const groupLabel=formatMonitorGroup(s.group);
+    const subjectDisplay=getSubjectDisplay(s);
+    const teacherDisplay=getTeacherDisplay(s);
     rows.push({
       date:d,
       period:periodLabel,
       class:s.class,
       group:groupLabel,
-      subject:s.subject,
-      teacher:s.teacher,
+      subject:subjectDisplay,
+      teacher:teacherDisplay,
       students:displays.text,
       studentsHtml:displays.html
     });
@@ -1802,9 +2174,11 @@ function renderMonitorTimetableForDate(date, allRecords){
       const classText=escapeHtml(s.class||'');
       const groupDisplay=formatMonitorGroup(s.group);
       const groupWrap=groupDisplay ? escapeHtml(wrapGroupDisplay(groupDisplay)) : '';
-      const subjectText=escapeHtml(s.subject||'');
+      const subjectDisplayText=getSubjectDisplay(s);
+      const subjectText=escapeHtml(subjectDisplayText||'');
       const subjectDisplay=subjectText || '—';
-      const teacherText=escapeHtml(s.teacher||'—');
+      const teacherDisplayText=getTeacherDisplay(s);
+      const teacherText=escapeHtml((teacherDisplayText||'—'));
       const teacherWrap=wrapParenthetical(teacherText);
       pieces.push(`<div class="slot"><div class="slot-title">${classText}${groupWrap} · ${subjectDisplay}${teacherWrap}</div><div class="students">${listHtml}</div></div>`);
     });
@@ -2007,6 +2381,7 @@ allTabs.forEach(tab=>{
 });
 
 onLanguageChange(()=>{
+  try{ renderChips(); }catch(err){ console.warn('Failed to re-render chips after language change.',err); }
   try{ buildTeacherClassSelects(); }catch(err){ console.warn('Failed to rebuild teacher/class lists after language change.',err); }
   try{ updateConflict(); }catch(err){ console.warn('Failed to update conflict notice after language change.',err); }
   document.querySelectorAll('#tblBody button[data-idx]').forEach(btn=>{ btn.textContent=t('deleteRecords'); });
