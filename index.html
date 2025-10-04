@@ -286,7 +286,11 @@
     // 如需新增部门，请在此数组增加配置项，并把 passwords 改成该部门专属密码列表
   ];
   let students=[];     // {id, cn, en, class, pinyin?, eng?, bm?, math?}
-  let schedule=[];     // {class, weekday, period, subject, teacher, group?}
+  let schedule=[];     // {class, weekday, period, subject, subject_en?, teacher, teacher_en?, group?, subject_id?, teacher_id?}
+  const subjectsById=new Map();
+  const teachersById=new Map();
+  const subjectEnMapByCn=Object.create(null);
+  const teacherEnMapByCn=Object.create(null);
   let pickList=[];     // {id, cn, en, class}
   let applyDates=[];   // 申请多日期
   let monDates=[];     // 监看多日期
@@ -690,8 +694,94 @@
   if (carr.includes(curC)) monClass.value = curC;
 }
 
+  const normalizeLookupKey=value=>{
+    if(value==null) return '';
+    const text=String(value).trim();
+    return text;
+  };
+
+  function clearObject(obj){
+    if(!obj) return;
+    Object.keys(obj).forEach(key=>{ delete obj[key]; });
+  }
+
+  function resetLookupCaches(){
+    subjectsById.clear();
+    teachersById.clear();
+    clearObject(subjectEnMapByCn);
+    clearObject(teacherEnMapByCn);
+  }
+
+  function rememberSubjectRecord(record){
+    if(!record) return;
+    const cn=normalizeLookupKey(record.name_cn);
+    const en=normalizeLookupKey(record.name_en);
+    if(record.id!=null){
+      subjectsById.set(record.id,{ cn, en });
+    }
+    if(cn){
+      if(en){
+        subjectEnMapByCn[cn]=en;
+      }else if(!(cn in subjectEnMapByCn)){
+        subjectEnMapByCn[cn]='';
+      }
+    }
+  }
+
+  function rememberTeacherRecord(record){
+    if(!record) return;
+    const cn=normalizeLookupKey(record.name_cn);
+    const en=normalizeLookupKey(record.name_en);
+    if(record.id!=null){
+      teachersById.set(record.id,{ cn, en });
+    }
+    if(cn){
+      if(en){
+        teacherEnMapByCn[cn]=en;
+      }else if(!(cn in teacherEnMapByCn)){
+        teacherEnMapByCn[cn]='';
+      }
+    }
+  }
+
+  function rememberSubjectName(nameCn,nameEn){
+    const cn=normalizeLookupKey(nameCn);
+    if(!cn) return;
+    const en=normalizeLookupKey(nameEn);
+    if(en){
+      subjectEnMapByCn[cn]=en;
+    }else if(!(cn in subjectEnMapByCn)){
+      subjectEnMapByCn[cn]='';
+    }
+  }
+
+  function rememberTeacherName(nameCn,nameEn){
+    const cn=normalizeLookupKey(nameCn);
+    if(!cn) return;
+    const en=normalizeLookupKey(nameEn);
+    if(en){
+      teacherEnMapByCn[cn]=en;
+    }else if(!(cn in teacherEnMapByCn)){
+      teacherEnMapByCn[cn]='';
+    }
+  }
+
+  function getSubjectEnglishName(nameCn){
+    const cn=normalizeLookupKey(nameCn);
+    if(!cn) return '';
+    return subjectEnMapByCn[cn] || '';
+  }
+
+  function getTeacherEnglishName(nameCn){
+    const cn=normalizeLookupKey(nameCn);
+    if(!cn) return '';
+    return teacherEnMapByCn[cn] || '';
+  }
+
   async function loadCoreDataFromSupabase() {
     try {
+      resetLookupCaches();
+
       const { data: stu, error: e1 } = await supabase
         .from("students")
         .select("id,name_cn,name_en,pinyin,class,group_en,group_bm,group_math")
@@ -708,24 +798,129 @@
         math: (s.group_math || "").toLowerCase(),
       }));
 
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from("subjects")
+        .select("id,name_cn,name_en");
+      if (subjectsError) {
+        console.warn("[Supabase] load subjects failed:", subjectsError);
+      } else {
+        (subjectsData || []).forEach(rememberSubjectRecord);
+      }
+
+      const { data: subjectMapData, error: subjectMapError } = await supabase
+        .from("subject_map")
+        .select("name_cn,name_en");
+      if (subjectMapError) {
+        console.warn("[Supabase] load subject_map failed:", subjectMapError);
+      } else {
+        (subjectMapData || []).forEach(row => {
+          rememberSubjectName(row?.name_cn, row?.name_en);
+        });
+      }
+
+      const { data: teachersData, error: teachersError } = await supabase
+        .from("teachers")
+        .select("id,name_cn,name_en");
+      if (teachersError) {
+        console.warn("[Supabase] load teachers failed:", teachersError);
+      } else {
+        (teachersData || []).forEach(rememberTeacherRecord);
+      }
+
+      const linkMap=new Map();
+      const { data: linksData, error: linksError } = await supabase
+        .from("timetable_links")
+        .select("timetable_id,subject_id,teacher_id,subjects(name_cn,name_en),teachers(name_cn,name_en)");
+      if (linksError) {
+        console.warn("[Supabase] load timetable_links failed:", linksError);
+      } else {
+        (linksData || []).forEach(link => {
+          const subjectCnRaw = link?.subjects?.name_cn;
+          const subjectEnRaw = link?.subjects?.name_en;
+          const teacherCnRaw = link?.teachers?.name_cn;
+          const teacherEnRaw = link?.teachers?.name_en;
+          rememberSubjectName(subjectCnRaw, subjectEnRaw);
+          rememberTeacherName(teacherCnRaw, teacherEnRaw);
+
+          const subjectCn = normalizeLookupKey(subjectCnRaw);
+          const subjectEn = normalizeLookupKey(subjectEnRaw);
+          const teacherCn = normalizeLookupKey(teacherCnRaw);
+          const teacherEn = normalizeLookupKey(teacherEnRaw);
+
+          linkMap.set(link.timetable_id, {
+            subject_id: link.subject_id ?? null,
+            teacher_id: link.teacher_id ?? null,
+            subject: (subjectCn || subjectEn) ? { cn: subjectCn, en: subjectEn } : null,
+            teacher: (teacherCn || teacherEn) ? { cn: teacherCn, en: teacherEn } : null,
+          });
+        });
+      }
+
       const { data: tt, error: e2 } = await supabase
         .from("timetable")
-        .select("class,weekday,period,subject,teacher,group_tag")
+        .select("id,class,weekday,period,subject,teacher,group_tag,subject_id,teacher_id")
         .order("class", { ascending: true })
         .order("weekday", { ascending: true })
         .order("period", { ascending: true });
       if (e2) throw e2;
-      schedule = (tt || []).map(x => ({
-        class: (x.class || "").toUpperCase(),
-        weekday: x.weekday,
-        period: String(x.period),
-        subject: x.subject || "",
-        teacher: x.teacher || "",
-        group: (x.group_tag || "").toLowerCase(),
-      }));
+
+      schedule = (tt || []).map(x => {
+        const link = linkMap.get(x.id) || {};
+        const subjectId = coalesceDefined(x.subject_id, link.subject_id);
+        const teacherId = coalesceDefined(x.teacher_id, link.teacher_id);
+        const subjectFromId = subjectId!=null ? subjectsById.get(subjectId) : null;
+        const teacherFromId = teacherId!=null ? teachersById.get(teacherId) : null;
+
+        let subjectCn = firstNonEmpty(
+          x.subject,
+          link.subject?.cn,
+          subjectFromId?.cn
+        );
+        const subjectEn = firstNonEmpty(
+          link.subject?.en,
+          subjectFromId?.en,
+          getSubjectEnglishName(subjectCn)
+        );
+
+        if(!subjectCn && subjectEn){
+          subjectCn = subjectEn;
+        }
+
+        let teacherCn = firstNonEmpty(
+          x.teacher,
+          link.teacher?.cn,
+          teacherFromId?.cn
+        );
+        const teacherEn = firstNonEmpty(
+          link.teacher?.en,
+          teacherFromId?.en,
+          getTeacherEnglishName(teacherCn)
+        );
+
+        if(!teacherCn && teacherEn){
+          teacherCn = teacherEn;
+        }
+
+        rememberSubjectName(subjectCn, subjectEn);
+        rememberTeacherName(teacherCn, teacherEn);
+
+        return {
+          id: x.id,
+          class: (x.class || "").toUpperCase(),
+          weekday: x.weekday,
+          period: String(x.period),
+          subject: subjectCn || "",
+          subject_en: subjectEn || "",
+          teacher: teacherCn || "",
+          teacher_en: teacherEn || "",
+          group: (x.group_tag || "").toLowerCase(),
+          subject_id: subjectId ?? null,
+          teacher_id: teacherId ?? null,
+        };
+      });
 
       buildTeacherClassSelects();
-      console.log(`[Supabase] loaded students=${students.length}, timetable=${schedule.length}`);
+      console.log(`[Supabase] loaded students=${students.length}, timetable=${schedule.length}, subjects=${subjectsById.size}, teachers=${teachersById.size}, links=${linkMap.size}`);
     } catch (err) {
       console.error("Load from Supabase failed:", err);
       alert(t('errorLoadCoreData'));
@@ -834,6 +1029,20 @@ const uniq=arr=>Array.from(new Set(arr));
 const trimLower=s=>(s||'').toString().trim().toLowerCase();
 const isJuniorClass=cls=>/^J/i.test(cls||'');
 const classCodeToCn=cls=>cls||'';
+const coalesceDefined=(...values)=>{
+  for(const value of values){
+    if(value!==undefined && value!==null) return value;
+  }
+  return null;
+};
+const firstNonEmpty=(...values)=>{
+  for(const value of values){
+    if(value==null) continue;
+    const text=String(value).trim();
+    if(text) return text;
+  }
+  return '';
+};
 
 function escapeHtml(str){
   return (str==null ? '' : String(str))
@@ -882,6 +1091,22 @@ function monitorListJoiner(){
 function wrapParenthetical(text){
   if(!text) return '';
   return currentLang()==='zh' ? `（${text}）` : ` (${text})`;
+}
+
+function getSubjectDisplay(slot){
+  if(!slot) return '';
+  if(currentLang()==='en'){
+    return firstNonEmpty(slot.subject_en, getSubjectEnglishName(slot.subject), slot.subject);
+  }
+  return slot.subject || '';
+}
+
+function getTeacherDisplay(slot){
+  if(!slot) return '';
+  if(currentLang()==='en'){
+    return firstNonEmpty(slot.teacher_en, getTeacherEnglishName(slot.teacher), slot.teacher);
+  }
+  return slot.teacher || '';
 }
 
 function formatStudentName(record){
@@ -1231,26 +1456,37 @@ function buildTexts(){
     const wd=weekdayName(d), ps=parsePeriods(periodText);
     let missCn='', missEn='';
     if(schedule.length && ps.length){
-      const lines=[]; pickList.forEach(sel=>{
+      const linesCn=[];
+      const linesEn=[];
+      pickList.forEach(sel=>{
         const stu=students.find(x=>x.id===sel.id); if(!stu) return;
         const hits=schedule.filter(x=> x.class===sel.class && x.weekday===wd && ps.includes(String(x.period)));
         const filtered=hits.filter(h=>{ const gkey=pickStudentGroupKey(h.subject); if(isJuniorClass(sel.class) && gkey && h.group){ return (stu[gkey]||'').toLowerCase()===h.group.toLowerCase(); } return true; });
-        if(filtered.length){ const msg=filtered.map(h=>`第${h.period}节 ${h.subject}（${h.teacher}${h.group?('，'+h.group.toUpperCase()+'组'):''}）`).join('，'); lines.push(`${sel.cn}（${sel.class}）：${msg}`); }
+        if(filtered.length){
+          const msgCn=filtered.map(h=>`第${h.period}节 ${h.subject}（${h.teacher}${h.group?('，'+h.group.toUpperCase()+'组'):''}）`).join('，');
+          linesCn.push(`${sel.cn}（${sel.class}）：${msgCn}`);
+
+          const msgEnParts=filtered.map(h=>{
+            const subjectLabel=firstNonEmpty(h.subject_en, getSubjectEnglishName(h.subject), h.subject);
+            const teacherLabel=firstNonEmpty(h.teacher_en, getTeacherEnglishName(h.teacher), h.teacher);
+            const extras=[];
+            if(teacherLabel) extras.push(teacherLabel);
+            if(h.group) extras.push(`Group ${String(h.group).toUpperCase()}`);
+            let base=`Period ${h.period}`;
+            if(subjectLabel){
+              base+=` ${subjectLabel}`;
+            }
+            if(extras.length){
+              base+=` (${extras.join(', ')})`;
+            }
+            return base;
+          });
+          const studentLabelEn=`${firstNonEmpty(sel.en, sel.cn, sel.id)} (${sel.class})`;
+          linesEn.push(`${studentLabelEn}: ${msgEnParts.join(', ')}`);
+        }
       });
-      missCn=lines.join('；');
-      if(missCn){
-        const subjMap={"语文":"Chinese","英语":"English","数学":"Mathematics","科学":"Science","历史":"History","地理":"Geography","美术":"Art","体育":"P.E."};
-        missEn=missCn.split('；').map(seg=>{
-          const m=seg.match(/^(.*?)(：)(.+)$/); if(!m) return seg;
-          const person=m[1], rest=m[3];
-          const parts=rest.split('，').map(p=>{
-            const mm=p.match(/^第(\d+)节\s*(\S+)（(.+?)）$/); if(!mm) return p;
-            const pno=mm[1], subj=mm[2], t=mm[3];
-            return `Period ${pno} ${(subjMap[subj]||subj)} (${t})`;
-          }).join(', ');
-          return `${person}: ${parts}`;
-        }).join(' ; ');
-      }
+      missCn=linesCn.join('；');
+      missEn=linesEn.join(' ; ');
     }
 
     const cn=`校长、老师们好：
@@ -1639,13 +1875,15 @@ function buildMonitorRowsForDate(d){
     const displays=formatStudentDisplays(matched);
     const periodLabel=getPeriodLabelLocal(s.period);
     const groupLabel=formatMonitorGroup(s.group);
+    const subjectDisplay=getSubjectDisplay(s);
+    const teacherDisplay=getTeacherDisplay(s);
     rows.push({
       date:d,
       period:periodLabel,
       class:s.class,
       group:groupLabel,
-      subject:s.subject,
-      teacher:s.teacher,
+      subject:subjectDisplay,
+      teacher:teacherDisplay,
       students:displays.text,
       studentsHtml:displays.html
     });
@@ -1802,9 +2040,11 @@ function renderMonitorTimetableForDate(date, allRecords){
       const classText=escapeHtml(s.class||'');
       const groupDisplay=formatMonitorGroup(s.group);
       const groupWrap=groupDisplay ? escapeHtml(wrapGroupDisplay(groupDisplay)) : '';
-      const subjectText=escapeHtml(s.subject||'');
+      const subjectDisplayText=getSubjectDisplay(s);
+      const subjectText=escapeHtml(subjectDisplayText||'');
       const subjectDisplay=subjectText || '—';
-      const teacherText=escapeHtml(s.teacher||'—');
+      const teacherDisplayText=getTeacherDisplay(s);
+      const teacherText=escapeHtml((teacherDisplayText||'—'));
       const teacherWrap=wrapParenthetical(teacherText);
       pieces.push(`<div class="slot"><div class="slot-title">${classText}${groupWrap} · ${subjectDisplay}${teacherWrap}</div><div class="students">${listHtml}</div></div>`);
     });
