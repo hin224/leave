@@ -278,292 +278,6 @@
   let deleteAuthCache=null; // { dept, ts }
   const DELETE_AUTH_CACHE_MS=10*60*1000; // 10 分钟内复用验证
 
-  const LANGUAGE_STORAGE_KEY='leave-app-lang';
-  const DEFAULT_LANG='zh';
-  const SUPPORTED_LANGS=['zh','en'];
-  const I18N_TEXT={
-    zh:{
-      pageTitle:'学生上课外出申请（公假外出）',
-      appTitle:'学生上课外出申请（公假外出）',
-      tabApply:'申请',
-      tabRecords:'记录 / 查看',
-      tabMonitor:'监看',
-      languageLabel:'界面语言：',
-      languageOptionZh:'简体中文',
-      languageOptionEn:'English',
-      labelIdQuick:'学号直达：',
-      phIdQuick:'输入学号后回车或点加入',
-      btnAddById:'加入名单',
-      labelNameSearch:'姓名模糊搜：',
-      phNameSearch:'中文/英文/拼音…',
-      labelIdsBulk:'批量学号：',
-      phIdsBulk:'支持逗号、空格、换行分隔',
-      btnAddBulk:'批量加入名单',
-      btnClearList:'清空名单',
-      labelCurrentList:'本次名单：',
-      labelDateSelect:'日期选择：',
-      hintAutoAddDate:'选择后自动加入',
-      labelStartDate:'起：',
-      labelEndDate:'止：',
-      btnAddDateRange:'加入范围',
-      btnAddSelectedDate:'加入所选',
-      labelPeriod:'时间段：',
-      phPeriod:'如：第3-4节 或 10:00-11:30',
-      labelActivity:'活动名称：',
-      phActivity:'如：全州排球赛',
-      btnGenerateText:'生成中英文本',
-      btnSaveToRecords:'保存到记录',
-      labelCnNotice:'中文通知：',
-      labelEnNotice:'English Letter:',
-      btnCopyCn:'复制中文TXT',
-      btnCopyEn:'复制英文TXT',
-      labelSubmitPassword:'提交前简单密码',
-      labelPassword:'密码：',
-      labelFilterDates:'按日期筛选：',
-      phFilterDates:'支持多日期：2025-09-25, 2025-09-26',
-      labelFilterClass:'按班级筛选：',
-      phFilterClass:'如：J1Z（留空=全部）',
-      labelFilterQuery:'快速搜索：',
-      phFilterQuery:'学号/中文/英文 关键词',
-      btnExportCsv:'导出筛选CSV',
-      btnDeleteSelected:'删除所选记录',
-      thDate:'日期',
-      thPeriod:'时间段',
-      thStudentId:'学号',
-      thClass:'班级',
-      thNameCn:'中文姓名',
-      thNameEn:'英文姓名',
-      thActivity:'活动',
-      thDepartment:'部门',
-      thActions:'操作',
-      labelMonitorDates:'日期选择：',
-      hintAutoAddMonDate:'选择后自动加入',
-      labelMonitorTeacher:'老师筛选：',
-      labelMonitorClass:'班级筛选：',
-      labelMonitorMode:'显示模式：',
-      optionMonitorTimetable:'时间表',
-      optionMonitorTable:'表格',
-      optionMonitorCards:'卡片',
-      btnMonitorRefresh:'刷新',
-      btnMonitorExport:'导出当前视图CSV',
-      monitorHint:'说明：① 多日期可同时监看；② 初中（J…）英/马/数分组课严格按 h/i/f 精确匹配；③ 未提供课表将仅显示记录。',
-      optionAllTeachers:'（全部老师）',
-      optionAllClasses:'（全部班级）',
-      btnClose:'关闭',
-      reasonLabel:'外出原因：',
-      reasonFallback:'未提供外出原因。',
-      departmentLabel:'申请部门：',
-      defaultStudentName:'学生',
-      unnamedStudent:'未命名学生',
-      studentIdLabel:'学号 {id}',
-      deleteRecords:'删除记录',
-      promptDeletionPassword:'请输入{action}密码（同提交密码）：',
-      errorPasswordIncorrect:'密码不正确',
-      confirmDeleteSingle:'确认删除：{date} {studentId} 这条记录？',
-      confirmDeleteSelected:'确定删除选中的 {count} 条记录？此操作不可恢复。',
-      errorMissingDeleteKeys:'缺少定位字段，无法删除。',
-      errorDeleteFailed:'云端删除失败',
-      errorDeletePartial:'删除过程中出现错误，部分记录可能未被删除。',
-      successDelete:'已删除所选记录。',
-      alertSelectRecords:'请先选择需要删除的记录',
-      monitorReasonTitle:'学生',
-      monitorDepartmentPrefix:'申请部门：',
-      errorLoadCoreData:'从云端加载学生/课表失败：请检查控制台日志与 RLS 策略。',
-      errorEnterStudentId:'请输入学号',
-      errorStudentNotFound:'未找到该学号',
-      errorEnterIdsFirst:'请先输入学号',
-      bulkAddSummary:'加入 {count} 人',
-      bulkAddSummaryWithMissing:'加入 {count} 人；未找到：{missing}',
-      errorSelectRange:'请先选择起止日期',
-      errorRangeOrder:'起始不能晚于结束',
-      conflictWeekend:'周末/假日',
-      conflictNoPeriods:'为具体时刻，未匹配课节。',
-      errorNeedList:'请先把学生加入“本次名单”。',
-      errorNeedDate:'请至少加入一个申请日期',
-      errorNeedPeriod:'请填写时间段',
-      errorNeedActivity:'请填写活动名称',
-      saveSuccess:'已保存 {count} 条记录到云端。',
-      saveNothing:'没有可保存的记录。',
-      saveFailed:'写入云端失败：请检查网络或 RLS 权限。已尝试写入本地。',
-      copyCnSuccess:'中文文本已复制',
-      copyFailed:'复制失败：{message}',
-      copyEnSuccess:'英文文本已复制',
-      copyEnFailed:'复制英文失败：{message}',
-      errorFetchRecords:'拉取云端记录失败',
-      exportEmpty:'筛选结果为空',
-      errorMonitorFetch:'拉取监看记录失败',
-      errorMonitorRange:'请先选择监看起止日期',
-      errorMonitorNeedDate:'请先加入至少一个日期'
-    },
-    en:{
-      pageTitle:'Student Off-Campus Application',
-      appTitle:'Student Off-Campus Application',
-      tabApply:'Apply',
-      tabRecords:'Records / Review',
-      tabMonitor:'Monitor',
-      languageLabel:'Interface language:',
-      languageOptionZh:'Simplified Chinese',
-      languageOptionEn:'English',
-      labelIdQuick:'Student ID quick add:',
-      phIdQuick:'Enter ID then press Enter or add',
-      btnAddById:'Add to list',
-      labelNameSearch:'Name search:',
-      phNameSearch:'Chinese/English/Pinyin…',
-      labelIdsBulk:'Bulk student IDs:',
-      phIdsBulk:'Use commas, spaces, or new lines',
-      btnAddBulk:'Add IDs in bulk',
-      btnClearList:'Clear list',
-      labelCurrentList:'Current list:',
-      labelDateSelect:'Select dates:',
-      hintAutoAddDate:'Auto add after picking',
-      labelStartDate:'Start:',
-      labelEndDate:'End:',
-      btnAddDateRange:'Add range',
-      btnAddSelectedDate:'Add selected',
-      labelPeriod:'Period / time:',
-      phPeriod:'e.g. Period 3-4 or 10:00-11:30',
-      labelActivity:'Activity name:',
-      phActivity:'e.g. State Volleyball',
-      btnGenerateText:'Generate CN/EN text',
-      btnSaveToRecords:'Save to records',
-      labelCnNotice:'Chinese notice:',
-      labelEnNotice:'English letter:',
-      btnCopyCn:'Copy Chinese TXT',
-      btnCopyEn:'Copy English TXT',
-      labelSubmitPassword:'Submission password',
-      labelPassword:'Password:',
-      labelFilterDates:'Filter by date:',
-      phFilterDates:'Supports multiple dates: 2025-09-25, 2025-09-26',
-      labelFilterClass:'Filter by class:',
-      phFilterClass:'e.g. J1Z (blank = all)',
-      labelFilterQuery:'Quick search:',
-      phFilterQuery:'ID / Chinese / English keywords',
-      btnExportCsv:'Export filtered CSV',
-      btnDeleteSelected:'Delete selected records',
-      thDate:'Date',
-      thPeriod:'Period',
-      thStudentId:'Student ID',
-      thClass:'Class',
-      thNameCn:'Name (CN)',
-      thNameEn:'Name (EN)',
-      thActivity:'Activity',
-      thDepartment:'Department',
-      thActions:'Actions',
-      labelMonitorDates:'Select dates:',
-      hintAutoAddMonDate:'Auto add after picking',
-      labelMonitorTeacher:'Filter by teacher:',
-      labelMonitorClass:'Filter by class:',
-      labelMonitorMode:'Display mode:',
-      optionMonitorTimetable:'Timetable',
-      optionMonitorTable:'Table',
-      optionMonitorCards:'Cards',
-      btnMonitorRefresh:'Refresh',
-      btnMonitorExport:'Export current view CSV',
-      monitorHint:'Notes: (1) Multiple dates can be monitored simultaneously; (2) Junior classes (J…) use exact h/i/f group matching for EN/BM/Math; (3) Records display when timetable data is missing.',
-      optionAllTeachers:'(All teachers)',
-      optionAllClasses:'(All classes)',
-      btnClose:'Close',
-      reasonLabel:'Reason for leave:',
-      reasonFallback:'No reason provided.',
-      departmentLabel:'Department:',
-      defaultStudentName:'Student',
-      unnamedStudent:'Unnamed student',
-      studentIdLabel:'Student ID {id}',
-      deleteRecords:'Delete records',
-      promptDeletionPassword:'Enter the password for {action} (same as submission password):',
-      errorPasswordIncorrect:'Incorrect password',
-      confirmDeleteSingle:'Delete this record for {date} {studentId}?',
-      confirmDeleteSelected:'Delete the selected {count} record(s)? This cannot be undone.',
-      errorMissingDeleteKeys:'Missing key fields; unable to delete.',
-      errorDeleteFailed:'Failed to delete from cloud',
-      errorDeletePartial:'An error occurred; some records may not have been deleted.',
-      successDelete:'Selected records deleted.',
-      alertSelectRecords:'Select records to delete first',
-      monitorReasonTitle:'Student',
-      monitorDepartmentPrefix:'Department:',
-      errorLoadCoreData:'Failed to load students/timetable from cloud. Check console logs and RLS policies.',
-      errorEnterStudentId:'Enter a student ID',
-      errorStudentNotFound:'Student ID not found',
-      errorEnterIdsFirst:'Enter student IDs first',
-      bulkAddSummary:'Added {count} student(s)',
-      bulkAddSummaryWithMissing:'Added {count} student(s); missing: {missing}',
-      errorSelectRange:'Select the start and end dates first',
-      errorRangeOrder:'Start date cannot be later than end date',
-      conflictWeekend:'Weekend / holiday',
-      conflictNoPeriods:'Specific times provided; no matching periods.',
-      errorNeedList:'Add students to the list first.',
-      errorNeedDate:'Add at least one application date.',
-      errorNeedPeriod:'Enter the period or time range.',
-      errorNeedActivity:'Enter the activity name.',
-      saveSuccess:'Saved {count} record(s) to the cloud.',
-      saveNothing:'Nothing to save.',
-      saveFailed:'Failed to write to the cloud. Check network or RLS permissions. Local copy attempted.',
-      copyCnSuccess:'Chinese text copied',
-      copyFailed:'Copy failed: {message}',
-      copyEnSuccess:'English text copied',
-      copyEnFailed:'Copy failed: {message}',
-      errorFetchRecords:'Failed to fetch records from cloud',
-      exportEmpty:'No filtered results',
-      errorMonitorFetch:'Failed to load monitoring records',
-      errorMonitorRange:'Select the monitoring range first',
-      errorMonitorNeedDate:'Add at least one date first'
-    }
-  };
-
-  function normalizeLanguage(code){
-    if(!code) return DEFAULT_LANG;
-    const lower=code.toLowerCase();
-    if(SUPPORTED_LANGS.includes(lower)) return lower;
-    if(lower.startsWith('zh')) return 'zh';
-    return DEFAULT_LANG;
-  }
-
-  let currentLanguage=normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY) || navigator.language || DEFAULT_LANG);
-
-  function t(key, vars={}){
-    const dict=I18N_TEXT[currentLanguage] || I18N_TEXT[DEFAULT_LANG];
-    let template=(dict && dict[key]!==undefined) ? dict[key] : (I18N_TEXT[DEFAULT_LANG][key] ?? key);
-    if(typeof template!=='string') return template;
-    return template.replace(/\{(\w+)\}/g,(match,p)=>{
-      return vars[p]!==undefined ? vars[p] : match;
-    });
-  }
-
-  const languageSelect=document.getElementById('languageSelect');
-
-  function applyLanguage(lang){
-    currentLanguage=normalizeLanguage(lang);
-    document.documentElement.lang=currentLanguage==='en'?'en':'zh-CN';
-    if(languageSelect){ languageSelect.value=currentLanguage; }
-    document.title=t('pageTitle');
-    const textNodes=document.querySelectorAll('[data-i18n-text]');
-    textNodes.forEach(el=>{
-      const key=el.getAttribute('data-i18n-text');
-      const value=t(key);
-      if(value!==undefined){ el.textContent=value; }
-    });
-    const placeholders=document.querySelectorAll('[data-i18n-placeholder]');
-    placeholders.forEach(el=>{
-      const key=el.getAttribute('data-i18n-placeholder');
-      const value=t(key);
-      if(value!==undefined){ el.setAttribute('placeholder', value); }
-    });
-    document.querySelectorAll('button[data-idx]').forEach(btn=>{
-      btn.textContent=t('deleteRecords');
-    });
-    if(typeof buildTeacherClassSelects==='function'){
-      try{ buildTeacherClassSelects(); }catch(err){ console.warn('刷新老师/班级下拉失败', err); }
-    }
-  }
-
-  applyLanguage(currentLanguage);
-  if(languageSelect){
-    languageSelect.addEventListener('change',e=>{
-      applyLanguage(e.target.value);
-      try{ localStorage.setItem(LANGUAGE_STORAGE_KEY,currentLanguage); }catch(err){ console.warn('无法写入语言偏好', err); }
-    });
-  }
-
   /***** —— 3) 从 Supabase 读取学生 + 课表 —— *****/
   function buildTeacherClassSelects(){
   // 依赖：schedule、monTeacher、monClass 已经声明
@@ -843,6 +557,7 @@ function parseDepartmentFromPassword(input){
 
 function ensureDeletionAuthorized(actionKey='deleteRecords'){
   const actionLabel = typeof actionKey==='string' ? t(actionKey) : actionKey;
+function ensureDeletionAuthorized(actionLabel='删除记录'){
   const now=Date.now();
   if(deleteAuthCache && (now-deleteAuthCache.ts)<DELETE_AUTH_CACHE_MS){
     return deleteAuthCache.dept;
@@ -866,6 +581,15 @@ function ensureDeletionAuthorized(actionKey='deleteRecords'){
     }
     alert(t('errorPasswordIncorrect'));
   }
+  const input=prompt(`请输入${actionLabel}密码（同提交密码）：`,'');
+  if(input===null) return null;
+  const dept=parseDepartmentFromPassword(input);
+  if(!dept){
+    alert('密码不正确');
+    return null;
+  }
+  deleteAuthCache={ dept, ts:now };
+  return dept;
 }
 
 function pickStudentGroupKey(subject){
@@ -1313,6 +1037,9 @@ tblBody.addEventListener('click', async e=>{
   if(!date || !sid || !ts){ alert(t('errorMissingDeleteKeys')); return; }
   if(!confirm(t('confirmDeleteSingle',{ date, studentId:sid }))) return;
   if(!ensureDeletionAuthorized('deleteRecords')) return;
+  if(!date || !sid || !ts){ alert('缺少定位字段，无法删除。'); return; }
+  if(!confirm(`确认删除：${date} ${sid} 这条记录？`)) return;
+  if(!ensureDeletionAuthorized('删除记录')) return;
 
   const { error } = await supabase
     .from('applications_flat')
@@ -1339,6 +1066,9 @@ btnDeleteSelected.onclick=async ()=>{
   if(!selected.length){ alert(t('alertSelectRecords')); return; }
   if(!confirm(t('confirmDeleteSelected',{ count:selected.length }))) return;
   if(!ensureDeletionAuthorized('deleteRecords')) return;
+  if(!selected.length){ alert('请先选择需要删除的记录'); return; }
+  if(!confirm(`确定删除选中的 ${selected.length} 条记录？此操作不可恢复。`)) return;
+  if(!ensureDeletionAuthorized('删除记录')) return;
 
   for(const cb of selected){
     const date=cb.getAttribute('data-date');
@@ -1356,12 +1086,14 @@ btnDeleteSelected.onclick=async ()=>{
     if(error){
       console.error('删除失败：', error);
       alert(t('errorDeletePartial'));
+      alert('删除过程中出现错误，部分记录可能未被删除。');
       refreshTable();
       return;
     }
   }
 
   alert(t('successDelete'));
+  alert('已删除所选记录。');
   refreshTable();
 };
 
