@@ -1606,70 +1606,103 @@ document.getElementById('btnGenText').onclick=()=>{
   outBox.style.display='block'; outCn.value=t.cn; outEn.value=t.en;
 };
 
-document.getElementById('btnSave').onclick = async () => {
-  const t = buildTexts();
-  if (!t) return;
+async function saveCurrentApplication(options={}){
+  const { force=false, silent=false } = options;
+  const t=buildTexts();
+  if(!t) return null;
 
-  try {
-    const base = {
-      period: (periodInp.value || '').trim(),
-      activity: (activityInp.value || '').trim(),
-      department_cn: t.dept?.cn || '',
-      department_en: t.dept?.en || '',
-      department_code: t.dept?.code || ''
+  outBox.style.display='block';
+  outCn.value=t.cn;
+  outEn.value=t.en;
+
+  if(!force && !hasUnsavedChanges){
+    return { text:t, saved:false };
+  }
+
+  try{
+    const base={
+      period:(periodInp.value||'').trim(),
+      activity:(activityInp.value||'').trim(),
+      department_cn:t.dept?.cn||'',
+      department_en:t.dept?.en||'',
+      department_code:t.dept?.code||''
     };
-    const nowTs = Date.now();
-    const rows = [];
-    applyDates.forEach(d => {
-      pickList.forEach(s => {
+    const nowTs=Date.now();
+    const rows=[];
+    applyDates.forEach(d=>{
+      pickList.forEach(s=>{
         rows.push({
-          date: d,
-          period: base.period,
-          student_id: s.id,
-          class: s.class,
-          name_cn: s.cn,
-          name_en: s.en,
-          activity: base.activity,
-          department_cn: base.department_cn,
-          department_en: base.department_en,
-          department_code: base.department_code,
-          client_ts: nowTs, // 统一批次标识
+          date:d,
+          period:base.period,
+          student_id:s.id,
+          class:s.class,
+          name_cn:s.cn,
+          name_en:s.en,
+          activity:base.activity,
+          department_cn:base.department_cn,
+          department_en:base.department_en,
+          department_code:base.department_code,
+          client_ts:nowTs,
         });
       });
     });
 
-    if (rows.length) {
-      const rowsForInsert = rows.map(r => ({ ...r }));
-      const { error } = await supabase.from("applications_flat").insert(rowsForInsert);
-      if (error) {
-        const msg = (error.message || '').toLowerCase();
-        if (msg.includes('column') && msg.includes('department')) {
-          const stripped = rowsForInsert.map(({ department_cn, department_en, department_code, ...rest }) => rest);
-          const retry = await supabase.from("applications_flat").insert(stripped);
-          if (retry.error) throw retry.error;
-        } else {
-          throw error;
-        }
-      }
-
-      // —— 可选兜底：也写入本地（断网时仍能用“记录/监看”离线导出）
-      const allLocal = JSON.parse(localStorage.getItem('leave_records')||'[]');
-      rows.forEach(r => allLocal.push({ ...r, ts: r.client_ts }));
-      localStorage.setItem('leave_records', JSON.stringify(allLocal));
-
-      resetUnsavedState();
-      alert(t('saveSuccess',{ count:rows.length }));
-    } else {
-      alert(t('saveNothing'));
+    if(!rows.length){
+      if(!silent) alert(t('saveNothing'));
+      return { text:t, saved:false };
     }
-  } catch (e) {
-    console.error("Save to Supabase failed:", e);
-    alert(t('saveFailed'));
+
+    const rowsForInsert=rows.map(r=>({ ...r }));
+    let { error } = await supabase.from('applications_flat').insert(rowsForInsert);
+    if(error){
+      const msg=(error.message||'').toLowerCase();
+      if(msg.includes('column') && msg.includes('department')){
+        const stripped=rowsForInsert.map(({ department_cn, department_en, department_code, ...rest })=>rest);
+        const retry=await supabase.from('applications_flat').insert(stripped);
+        if(retry.error) throw retry.error;
+      }else{
+        throw error;
+      }
+    }
+
+    const allLocal=JSON.parse(localStorage.getItem('leave_records')||'[]');
+    rows.forEach(r=>allLocal.push({ ...r, ts:r.client_ts }));
+    localStorage.setItem('leave_records', JSON.stringify(allLocal));
+
+    resetUnsavedState();
+    if(!silent) alert(t('saveSuccess',{ count:rows.length }));
+    return { text:t, saved:true };
+  }catch(e){
+    console.error('Save to Supabase failed:', e);
+    if(!silent) alert(t('saveFailed'));
+    return null;
   }
+}
+
+document.getElementById('btnSave').onclick=async()=>{
+  await saveCurrentApplication({ force:true });
 };
 
-btnCopyCn.onclick=async()=>{ try{ await navigator.clipboard.writeText(outCn.value||''); alert(t('copyCnSuccess')); }catch(e){ alert(t('copyFailed',{ message:e.message||'' })); } };
-btnCopyEn.onclick=async()=>{ try{ await navigator.clipboard.writeText(outEn.value||''); alert(t('copyEnSuccess')); }catch(e){ alert(t('copyEnFailed',{ message:e.message||'' })); } };
+btnCopyCn.onclick=async()=>{
+  const result=await saveCurrentApplication({ silent:true });
+  if(!result) return;
+  try{
+    await navigator.clipboard.writeText(result.text.cn||'');
+    alert(t('copyCnSuccess'));
+  }catch(e){
+    alert(t('copyFailed',{ message:e.message||'' }));
+  }
+};
+btnCopyEn.onclick=async()=>{
+  const result=await saveCurrentApplication({ silent:true });
+  if(!result) return;
+  try{
+    await navigator.clipboard.writeText(result.text.en||'');
+    alert(t('copyEnSuccess'));
+  }catch(e){
+    alert(t('copyEnFailed',{ message:e.message||'' }));
+  }
+};
 
 /***** —— 记录页（云端读写） —— */
 function parseDatesMulti(text){ return (text||'').split(/[^0-9-]+/).map(s=>s.trim()).filter(Boolean); }
@@ -1873,16 +1906,21 @@ async function ensureMonitorDefaults(){
       .order('date', { ascending: true });
     if (error) throw error;
     const list = Array.from(new Set((data||[]).map(item => item.date).filter(Boolean))).sort();
-    if (list.length) {
-      monDates = list;
+    const todayStr = new Date().toISOString().slice(0,10);
+    const upcoming = list.filter(d => d >= todayStr);
+    const effective = upcoming.length ? upcoming : [];
+    if (effective.length) {
+      monDates = effective;
       monDatesUI.render();
       monMode.value = 'timetable';
       monitorDefaultActive = true;
       monitorDefaultInitialized = true;
       monitorUserModified = false;
     } else {
+      monDates = [];
+      monDatesUI.render();
       monitorDefaultActive = false;
-      monitorDefaultInitialized = false;
+      monitorDefaultInitialized = true;
     }
   } catch (err) {
     console.error('[monitor] Failed to load default dates:', err);
