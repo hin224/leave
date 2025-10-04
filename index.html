@@ -557,39 +557,29 @@ function parseDepartmentFromPassword(input){
 
 function ensureDeletionAuthorized(actionKey='deleteRecords'){
   const actionLabel = typeof actionKey==='string' ? t(actionKey) : actionKey;
-function ensureDeletionAuthorized(actionLabel='删除记录'){
-  const now=Date.now();
-  if(deleteAuthCache && (now-deleteAuthCache.ts)<DELETE_AUTH_CACHE_MS){
+  const now = Date.now();
+  if(deleteAuthCache && (now - deleteAuthCache.ts) < DELETE_AUTH_CACHE_MS){
     return deleteAuthCache.dept;
   }
 
   if(pwdInp && pwdInp.value){
-    const dept=parseDepartmentFromPassword(pwdInp.value);
+    const dept = parseDepartmentFromPassword(pwdInp.value);
     if(dept){
-      deleteAuthCache={ dept, ts:now };
+      deleteAuthCache = { dept, ts: now };
       return dept;
     }
   }
 
   while(true){
-    const input=prompt(t('promptDeletionPassword',{ action: actionLabel }), '');
+    const input = prompt(t('promptDeletionPassword',{ action: actionLabel }), '');
     if(input===null) return null;
-    const dept=parseDepartmentFromPassword(input);
+    const dept = parseDepartmentFromPassword(input);
     if(dept){
-      deleteAuthCache={ dept, ts:Date.now() };
+      deleteAuthCache = { dept, ts: Date.now() };
       return dept;
     }
     alert(t('errorPasswordIncorrect'));
   }
-  const input=prompt(`请输入${actionLabel}密码（同提交密码）：`,'');
-  if(input===null) return null;
-  const dept=parseDepartmentFromPassword(input);
-  if(!dept){
-    alert('密码不正确');
-    return null;
-  }
-  deleteAuthCache={ dept, ts:now };
-  return dept;
 }
 
 function pickStudentGroupKey(subject){
@@ -1037,9 +1027,6 @@ tblBody.addEventListener('click', async e=>{
   if(!date || !sid || !ts){ alert(t('errorMissingDeleteKeys')); return; }
   if(!confirm(t('confirmDeleteSingle',{ date, studentId:sid }))) return;
   if(!ensureDeletionAuthorized('deleteRecords')) return;
-  if(!date || !sid || !ts){ alert('缺少定位字段，无法删除。'); return; }
-  if(!confirm(`确认删除：${date} ${sid} 这条记录？`)) return;
-  if(!ensureDeletionAuthorized('删除记录')) return;
 
   const { error } = await supabase
     .from('applications_flat')
@@ -1066,9 +1053,6 @@ btnDeleteSelected.onclick=async ()=>{
   if(!selected.length){ alert(t('alertSelectRecords')); return; }
   if(!confirm(t('confirmDeleteSelected',{ count:selected.length }))) return;
   if(!ensureDeletionAuthorized('deleteRecords')) return;
-  if(!selected.length){ alert('请先选择需要删除的记录'); return; }
-  if(!confirm(`确定删除选中的 ${selected.length} 条记录？此操作不可恢复。`)) return;
-  if(!ensureDeletionAuthorized('删除记录')) return;
 
   for(const cb of selected){
     const date=cb.getAttribute('data-date');
@@ -1086,14 +1070,12 @@ btnDeleteSelected.onclick=async ()=>{
     if(error){
       console.error('删除失败：', error);
       alert(t('errorDeletePartial'));
-      alert('删除过程中出现错误，部分记录可能未被删除。');
       refreshTable();
       return;
     }
   }
 
   alert(t('successDelete'));
-  alert('已删除所选记录。');
   refreshTable();
 };
 
