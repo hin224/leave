@@ -356,6 +356,9 @@
       btnMonitorRefresh:"刷新",
       btnMonitorExport:"导出当前视图CSV",
       monitorHint:"说明：① 多日期可同时监看；② 初中（J…）英/马/数分组课严格按 h/i/f 精确匹配；③ 未提供课表将仅显示记录。",
+      monitorCardTeacherLabel:"任课：",
+      monitorCardStudentsLabel:"外出学生：",
+      monitorCardNoStudents:"（无）",
       phIdQuick:"输入学号后回车或点加入",
       phNameSearch:"中文/英文/拼音…",
       phIdsBulk:"支持逗号、空格、换行分隔",
@@ -408,7 +411,23 @@
       exportEmpty:"无可导出的内容。",
       errorMonitorRange:"请先选择监看起止日期。",
       errorMonitorNeedDate:"请先加入至少一个监看日期。",
-      errorMonitorFetch:"加载监看数据失败。"
+      errorMonitorFetch:"加载监看数据失败。",
+      monitorNoResults:"无匹配记录。",
+      monitorNoResultsShort:"无匹配记录",
+      monitorNoMissing:"暂无缺失学生。",
+      monitorTablePeriodColumn:"节次/时间",
+      monitorTableGroupColumn:"分组",
+      monitorTableSubjectColumn:"科目",
+      monitorTableTeacherColumn:"任课老师",
+      monitorTableStudentsColumn:"外出学生",
+      monitorTimetableWeekdayHeading:"星期",
+      monitorUnmatchedLabel:"未匹配课表：",
+      monitorUnmatchedRecordsLabel:"未匹配课表记录：",
+      monitorSpecificSlot:"具体时段",
+      monitorNoSchedule:"（无课表）",
+      monitorGroupLabel:"{group}组",
+      monitorPeriodLabel:"第{period}节",
+      monitorExportFilename:"监看视图.csv"
     },
     en:{
       pageTitle:"Student Official Leave Application",
@@ -467,6 +486,9 @@
       btnMonitorRefresh:"Refresh",
       btnMonitorExport:"Export current view CSV",
       monitorHint:"Notes: (1) Multiple dates can be monitored at once. (2) For junior (J...) English/BM/Math split classes, match the h/i/f groups exactly. (3) When no timetable is available, only records are shown.",
+      monitorCardTeacherLabel:"Teacher: ",
+      monitorCardStudentsLabel:"Students: ",
+      monitorCardNoStudents:"(None)",
       phIdQuick:"Enter student ID then press Enter or Add",
       phNameSearch:"Chinese/English/Pinyin…",
       phIdsBulk:"Comma, space or newline separated IDs",
@@ -519,7 +541,23 @@
       exportEmpty:"Nothing to export.",
       errorMonitorRange:"Select start and end dates for monitoring first.",
       errorMonitorNeedDate:"Add at least one monitoring date first.",
-      errorMonitorFetch:"Failed to load monitor data."
+      errorMonitorFetch:"Failed to load monitor data.",
+      monitorNoResults:"No matching records.",
+      monitorNoResultsShort:"No matches",
+      monitorNoMissing:"No missing students.",
+      monitorTablePeriodColumn:"Period / Time",
+      monitorTableGroupColumn:"Group",
+      monitorTableSubjectColumn:"Subject",
+      monitorTableTeacherColumn:"Teacher",
+      monitorTableStudentsColumn:"Students out",
+      monitorTimetableWeekdayHeading:"Weekday",
+      monitorUnmatchedLabel:"Not matched to timetable:",
+      monitorUnmatchedRecordsLabel:"Records without timetable match:",
+      monitorSpecificSlot:"Specific time",
+      monitorNoSchedule:"(No timetable)",
+      monitorGroupLabel:"Group {group}",
+      monitorPeriodLabel:"Period {period}",
+      monitorExportFilename:"monitor-view.csv"
     }
   };
   const LANGUAGE_STORAGE_KEY='leave_app_lang';
@@ -773,20 +811,23 @@ const btnMonExport=document.getElementById('btnMonExport');
 
 // 时间常量
 const PERIODS=[null,
-  {label:'第一节',time:'8:10-8:45'},
-  {label:'第二节',time:'8:45-9:20'},
-  {label:'第三节',time:'9:50-10:25'},
-  {label:'第四节',time:'10:25-11:00'},
-  {label:'第五节',time:'11:10-11:45'},
-  {label:'第六节',time:'11:45-12:20'},
-  {label:'第七节',time:'12:50-13:25'},
-  {label:'第八节',time:'13:25-14:00'},
-  {label:'第九节',time:'14:10-14:45'},
-  {label:'第十节',time:'14:45-15:20'}
+  {label:{zh:'第一节',en:'Period 1'},time:'8:10-8:45'},
+  {label:{zh:'第二节',en:'Period 2'},time:'8:45-9:20'},
+  {label:{zh:'第三节',en:'Period 3'},time:'9:50-10:25'},
+  {label:{zh:'第四节',en:'Period 4'},time:'10:25-11:00'},
+  {label:{zh:'第五节',en:'Period 5'},time:'11:10-11:45'},
+  {label:{zh:'第六节',en:'Period 6'},time:'11:45-12:20'},
+  {label:{zh:'第七节',en:'Period 7'},time:'12:50-13:25'},
+  {label:{zh:'第八节',en:'Period 8'},time:'13:25-14:00'},
+  {label:{zh:'第九节',en:'Period 9'},time:'14:10-14:45'},
+  {label:{zh:'第十节',en:'Period 10'},time:'14:45-15:20'}
 ];
 const PERIOD_NUMS=[1,2,3,4,5,6,7,8,9,10];
 const WEEKDAYS_EN=['Monday','Tuesday','Wednesday','Thursday','Friday'];
-const WEEKDAY_CN={Monday:'星期一',Tuesday:'星期二',Wednesday:'星期三',Thursday:'星期四',Friday:'星期五'};
+const WEEKDAY_LABELS={
+  zh:{Monday:'星期一',Tuesday:'星期二',Wednesday:'星期三',Thursday:'星期四',Friday:'星期五'},
+  en:{Monday:'Monday',Tuesday:'Tuesday',Wednesday:'Wednesday',Thursday:'Thursday',Friday:'Friday'}
+};
 
 /***** —— 工具函数 —— *****/
 const uniq=arr=>Array.from(new Set(arr));
@@ -801,6 +842,46 @@ function escapeHtml(str){
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
+}
+
+function currentLang(){
+  try{ return getCurrentLanguage(); }
+  catch(err){ return DEFAULT_LANGUAGE; }
+}
+
+function getWeekdayLabelLocal(weekday){
+  const lang=currentLang();
+  return (WEEKDAY_LABELS[lang] && WEEKDAY_LABELS[lang][weekday])
+    || (WEEKDAY_LABELS.zh && WEEKDAY_LABELS.zh[weekday])
+    || weekday;
+}
+
+function getPeriodLabelLocal(period){
+  const info=PERIODS[Number(period)];
+  if(info && info.label){
+    return info.label[currentLang()] || info.label.zh || t('monitorPeriodLabel',{period});
+  }
+  return t('monitorPeriodLabel',{period});
+}
+
+function formatMonitorGroup(group){
+  if(!group) return '';
+  const upper=String(group).toUpperCase();
+  return t('monitorGroupLabel',{group:upper});
+}
+
+function wrapGroupDisplay(text){
+  if(!text) return '';
+  return currentLang()==='zh' ? `（${text}）` : ` (${text})`;
+}
+
+function monitorListJoiner(){
+  return currentLang()==='zh' ? '，' : ', ';
+}
+
+function wrapParenthetical(text){
+  if(!text) return '';
+  return currentLang()==='zh' ? `（${text}）` : ` (${text})`;
 }
 
 function formatStudentName(record){
@@ -828,9 +909,10 @@ function formatStudentDisplays(records){
     if(deptRaw){ attrs.push(`data-department="${encodeURIComponent(deptRaw)}"`); }
     return `<span class="student-item" role="button" tabindex="0" ${attrs.join(' ')}>${escapeHtml(display)}</span>`;
   });
+  const joiner=monitorListJoiner();
   return {
-    text:records.map(r=>formatStudentName(r)).join('，'),
-    html:pieces.join('，')
+    text:records.map(r=>formatStudentName(r)).join(joiner),
+    html:pieces.join(joiner)
   };
 }
 
@@ -1555,9 +1637,14 @@ function buildMonitorRowsForDate(d){
   slots.forEach(s=>{
     const matched=recs.filter(r=> recordMatchesSlot(r,s));
     const displays=formatStudentDisplays(matched);
+    const periodLabel=getPeriodLabelLocal(s.period);
+    const groupLabel=formatMonitorGroup(s.group);
     rows.push({
-      date:d, period:`第${s.period}节`, class:s.class,
-      group:(s.group? s.group.toUpperCase()+'组' : ''), subject:s.subject,
+      date:d,
+      period:periodLabel,
+      class:s.class,
+      group:groupLabel,
+      subject:s.subject,
       teacher:s.teacher,
       students:displays.text,
       studentsHtml:displays.html
@@ -1574,10 +1661,10 @@ function buildMonitorRowsForDate(d){
     const displays=formatStudentDisplays([r]);
     rows.push({
       date:d,
-      period:r.period,
+      period:r.period || t('monitorSpecificSlot'),
       class:r.class,
       group:'',
-      subject:'（无课表）',
+      subject:t('monitorNoSchedule'),
       teacher:'',
       students:displays.text,
       studentsHtml:displays.html
@@ -1594,7 +1681,10 @@ async function buildMonitorView(){
     await ensureMonitorDefaults();
   }
   monitorDefaultActive = monitorDefaultActive && monMode.value==='timetable';
-  if(!monDates.length){ monResult.innerHTML='<div class="muted">请先加入至少一个日期。</div>'; return; }
+  if(!monDates.length){
+    monResult.innerHTML=`<div class="muted">${escapeHtml(t('errorMonitorNeedDate'))}</div>`;
+    return;
+  }
 
   await loadMonitorRecordsFromCloud();
 
@@ -1603,54 +1693,96 @@ async function buildMonitorView(){
   let allRows=[]; monDates.forEach(d=>{ allRows=allRows.concat(buildMonitorRowsForDate(d)); });
 
   if(monMode.value==='cards'){
-    const html=allRows.map(r=>`<div class="list" style="margin-bottom:8px;">
-      <div><strong>${r.date}</strong>　${r.period}　${r.class} ${r.group?`（${r.group}）`:''}　${r.subject}　<span class="muted">任课：${r.teacher||'—'}</span></div>
-      <div>外出学生：${r.studentsHtml||'<span class="muted">（无）</span>'}</div>
-    </div>`).join('');
-    monResult.innerHTML=html || '<div class="muted">无匹配记录。</div>';
+    const teacherLabel=escapeHtml(t('monitorCardTeacherLabel'));
+    const studentsLabel=escapeHtml(t('monitorCardStudentsLabel'));
+    const emptyStudentsHtml=`<span class="muted">${escapeHtml(t('monitorCardNoStudents'))}</span>`;
+    const html=allRows.map(r=>{
+      const dateText=escapeHtml(r.date||'');
+      const periodText=escapeHtml(r.period||'');
+      const classText=escapeHtml(r.class||'');
+      const groupWrap=r.group ? wrapGroupDisplay(r.group) : '';
+      const groupText=groupWrap ? escapeHtml(groupWrap) : '';
+      const subjectText=escapeHtml(r.subject||'');
+      const subjectDisplay=subjectText || '—';
+      const teacherText=r.teacher ? escapeHtml(r.teacher) : '—';
+      const studentsHtml=r.studentsHtml || emptyStudentsHtml;
+      return `<div class="list" style="margin-bottom:8px;">
+        <div><strong>${dateText}</strong>　${periodText}　${classText}${groupText}　${subjectDisplay}　<span class="muted">${teacherLabel}${teacherText}</span></div>
+        <div>${studentsLabel}${studentsHtml}</div>
+      </div>`;
+    }).join('');
+    monResult.innerHTML=html || `<div class="muted">${escapeHtml(t('monitorNoResults'))}</div>`;
     return;
   }
 
-  const header=['日期','节次/时间','班级','分组','科目','任课老师','外出学生'];
-  const rowsHtml=allRows.map(r=>`<tr>
-    <td class="nowrap">${r.date}</td>
-    <td class="nowrap">${r.period||'—'}</td>
-    <td>${r.class||'—'}</td>
-    <td>${r.group||'—'}</td>
-    <td>${r.subject||'—'}</td>
-    <td>${r.teacher||'—'}</td>
-    <td>${r.studentsHtml||'<span class="muted">（无）</span>'}</td>
-  </tr>`).join('');
-  monResult.innerHTML = `<div class="scroll-x"><table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml||'<tr><td colspan="7" class="muted">无匹配记录</td></tr>'}</tbody></table></div>`;
+  const header=[
+    t('thDate'),
+    t('monitorTablePeriodColumn'),
+    t('thClass'),
+    t('monitorTableGroupColumn'),
+    t('monitorTableSubjectColumn'),
+    t('monitorTableTeacherColumn'),
+    t('monitorTableStudentsColumn')
+  ];
+  const noStudentsCell=`<span class="muted">${escapeHtml(t('monitorCardNoStudents'))}</span>`;
+  const rowsHtml=allRows.map(r=>{
+    const dateCell=escapeHtml(r.date||'');
+    const periodCell=escapeHtml(r.period||'');
+    const classCell=escapeHtml(r.class||'');
+    const groupCell=r.group ? escapeHtml(r.group) : '—';
+    const subjectCell=escapeHtml(r.subject||'');
+    const teacherCell=r.teacher ? escapeHtml(r.teacher) : '—';
+    const studentsCell=r.studentsHtml || noStudentsCell;
+    return `<tr>
+      <td class="nowrap">${dateCell}</td>
+      <td class="nowrap">${periodCell||'—'}</td>
+      <td>${classCell||'—'}</td>
+      <td>${groupCell}</td>
+      <td>${subjectCell||'—'}</td>
+      <td>${teacherCell}</td>
+      <td>${studentsCell}</td>
+    </tr>`;
+  }).join('');
+  const headerHtml=header.map(h=>`<th>${escapeHtml(h)}</th>`).join('');
+  const emptyRow=`<tr><td colspan="7" class="muted">${escapeHtml(t('monitorNoResultsShort'))}</td></tr>`;
+  monResult.innerHTML = `<div class="scroll-x"><table><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml||emptyRow}</tbody></table></div>`;
 }
 
 function buildMonitorTimetable(){
   const dates=monDates.slice().sort();
   if(!dates.length){
-    monResult.innerHTML='<div class="muted">请先加入至少一个日期。</div>';
+    monResult.innerHTML=`<div class="muted">${escapeHtml(t('errorMonitorNeedDate'))}</div>`;
     return;
   }
 
   const allRecords=getAllRecords();
   const sections=dates.map(d=>renderMonitorTimetableForDate(d, allRecords)).filter(Boolean);
-  monResult.innerHTML=sections.join('') || '<div class="muted">无匹配记录。</div>';
+  monResult.innerHTML=sections.join('') || `<div class="muted">${escapeHtml(t('monitorNoResults'))}</div>`;
 }
 
 function renderMonitorTimetableForDate(date, allRecords){
   const wd=weekdayName(date);
-  const weekdayLabel=WEEKDAY_CN[wd]||wd;
+  const weekdayLabel=getWeekdayLabelLocal(wd);
   const dayRecords=allRecords.filter(r=>r.date===date);
+  const dateText=escapeHtml(date||'');
+  const weekdayText=escapeHtml(weekdayLabel);
+  const dateDisplay=`${dateText}${wrapParenthetical(weekdayText)}`;
+  const colonSeparator=currentLang()==='zh' ? '：' : ': ';
+  const noStudentsHtml=`<span class="muted">${escapeHtml(t('monitorCardNoStudents'))}</span>`;
 
   if(!schedule.length){
     if(!dayRecords.length){
-      const msg=monitorDefaultActive ? '暂无缺失学生。' : '无匹配记录。';
-      return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${date}（${weekdayLabel}）：${msg}</div></div>`;
+      const msg=monitorDefaultActive ? t('monitorNoMissing') : t('monitorNoResults');
+      return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${dateDisplay}${colonSeparator}${escapeHtml(msg)}</div></div>`;
     }
     const items=dayRecords.map(r=>{
       const displays=formatStudentDisplays([r]);
-      return `<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${displays.html||'<span class="muted">（无）</span>'}</div></div>`;
+      const classText=escapeHtml(r.class||'');
+      const periodText=escapeHtml(r.period||t('monitorSpecificSlot'));
+      const studentsHtml=displays.html || noStudentsHtml;
+      return `<div class="slot"><div class="slot-title">${classText} · ${periodText}</div><div class="students">${studentsHtml}</div></div>`;
     }).join('');
-    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${date}（${weekdayLabel}）</div><div class="cell">${items}</div></div>`;
+    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${dateDisplay}</div><div class="cell">${items}</div></div>`;
   }
 
   let slots=schedule.filter(x=>x.weekday===wd);
@@ -1666,9 +1798,15 @@ function renderMonitorTimetableForDate(date, allRecords){
       const matched=dayRecords.filter(r=> recordMatchesSlot(r,s));
       if(!matched.length && monitorDefaultActive) return;
       const displays=formatStudentDisplays(matched);
-      const listHtml=displays.html || '<span class="muted">（无）</span>';
-      const gtxt=s.group? `（${s.group.toUpperCase()}组）` : '';
-      pieces.push(`<div class="slot"><div class="slot-title">${s.class}${gtxt} · ${s.subject}（${s.teacher||'—'}）</div><div class="students">${listHtml}</div></div>`);
+      const listHtml=displays.html || noStudentsHtml;
+      const classText=escapeHtml(s.class||'');
+      const groupDisplay=formatMonitorGroup(s.group);
+      const groupWrap=groupDisplay ? escapeHtml(wrapGroupDisplay(groupDisplay)) : '';
+      const subjectText=escapeHtml(s.subject||'');
+      const subjectDisplay=subjectText || '—';
+      const teacherText=escapeHtml(s.teacher||'—');
+      const teacherWrap=wrapParenthetical(teacherText);
+      pieces.push(`<div class="slot"><div class="slot-title">${classText}${groupWrap} · ${subjectDisplay}${teacherWrap}</div><div class="students">${listHtml}</div></div>`);
     });
     const hasContent=pieces.length>0;
     if(!hasContent && !monitorDefaultActive){
@@ -1691,26 +1829,37 @@ function renderMonitorTimetableForDate(date, allRecords){
   });
   const orphanPieces=orphanRecords.map(r=>{
     const displays=formatStudentDisplays([r]);
-    return `<div class="slot"><div class="slot-title">${r.class} · ${r.period||'具体时段'}</div><div class="students">${displays.html||'<span class="muted">（无）</span>'}</div></div>`;
+    const classText=escapeHtml(r.class||'');
+    const periodText=escapeHtml(r.period||t('monitorSpecificSlot'));
+    const studentsHtml=displays.html || noStudentsHtml;
+    return `<div class="slot"><div class="slot-title">${classText} · ${periodText}</div><div class="students">${studentsHtml}</div></div>`;
   });
 
   const hasGridContent=activeCells.some(cell=>cell.hasContent);
   const hasOrphan=orphanPieces.length>0;
 
   if(!hasGridContent && !hasOrphan){
-    const msg=monitorDefaultActive ? '暂无缺失学生。' : '无匹配记录。';
-    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${date}（${weekdayLabel}）：${msg}</div></div>`;
+    const msg=monitorDefaultActive ? t('monitorNoMissing') : t('monitorNoResults');
+    return `<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:8px;">${dateDisplay}${colonSeparator}${escapeHtml(msg)}</div></div>`;
   }
 
-  let html=`<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${date}（${weekdayLabel}）</div>`;
+  let html=`<div class="ttable scroll-x" style="margin-bottom:12px;"><div class="muted" style="padding:6px 8px 0;">${dateDisplay}</div>`;
   if(hasGridContent){
-    const head=activeCells.map(cell=>`<th class="nowrap">${PERIODS[cell.period].label}<br><small class="muted">${PERIODS[cell.period].time}</small></th>`).join('');
+    const head=activeCells.map(cell=>{
+      const info=PERIODS[cell.period] || {};
+      const label=getPeriodLabelLocal(cell.period);
+      const time=info.time || '';
+      return `<th class="nowrap">${escapeHtml(label)}<br><small class="muted">${escapeHtml(time)}</small></th>`;
+    }).join('');
     const rows=activeCells.map(cell=>`<td class="cell">${cell.html || '<span class="muted">—</span>'}</td>`).join('');
-    html+=`<table><thead><tr><th class="nowrap">星期</th><th class="nowrap">日期</th>${head}</tr></thead><tbody><tr><th class="nowrap">${weekdayLabel}</th><td class="muted nowrap">${date}</td>${rows}</tr></tbody></table>`;
+    const weekdayHeading=escapeHtml(t('monitorTimetableWeekdayHeading'));
+    const dateHeading=escapeHtml(t('thDate'));
+    html+=`<table><thead><tr><th class="nowrap">${weekdayHeading}</th><th class="nowrap">${dateHeading}</th>${head}</tr></thead><tbody><tr><th class="nowrap">${weekdayText}</th><td class="muted nowrap">${dateText}</td>${rows}</tr></tbody></table>`;
   }
   if(hasOrphan){
-    const label=hasGridContent ? '<strong>未匹配课表：</strong>' : '<strong>未匹配课表记录：</strong>';
-    html+=`<div class="cell" style="padding:8px;">${label}${orphanPieces.join('')}</div>`;
+    const labelText=hasGridContent ? t('monitorUnmatchedLabel') : t('monitorUnmatchedRecordsLabel');
+    const labelHtml=`<strong>${escapeHtml(labelText)}</strong>`;
+    html+=`<div class="cell" style="padding:8px;">${labelHtml}${orphanPieces.join('')}</div>`;
   }
   html+='</div>';
   return html;
@@ -1757,7 +1906,17 @@ btnMonRefresh.onclick=buildMonitorView;
 btnMonExport.onclick=async ()=>{
   if(!monDates.length){ alert(t('errorMonitorNeedDate')); return; }
   await loadMonitorRecordsFromCloud();
-  let lines=['日期,节次/时间,班级,分组,科目,任课老师,外出学生'];
+  const headerCells=[
+    t('thDate'),
+    t('monitorTablePeriodColumn'),
+    t('thClass'),
+    t('monitorTableGroupColumn'),
+    t('monitorTableSubjectColumn'),
+    t('monitorTableTeacherColumn'),
+    t('monitorTableStudentsColumn')
+  ];
+  const headerLine=headerCells.map(s=>`"${(s||'').replace(/"/g,'""')}"`).join(',');
+  let lines=[headerLine];
   monDates.forEach(d=>{
     const rows=buildMonitorRowsForDate(d);
     rows.forEach(r=>{
@@ -1766,7 +1925,7 @@ btnMonExport.onclick=async ()=>{
     });
   });
   const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='监看视图.csv'; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=t('monitorExportFilename'); a.click();
 };
 
 function activateStudentReason(target){
@@ -1846,23 +2005,6 @@ allTabs.forEach(tab=>{
     }
   });
 });
-
-onLanguageChange(()=>{
-  try{ buildTeacherClassSelects(); }catch(err){ console.warn('Failed to rebuild teacher/class lists after language change.',err); }
-  try{ updateConflict(); }catch(err){ console.warn('Failed to update conflict notice after language change.',err); }
-  document.querySelectorAll('#tblBody button[data-idx]').forEach(btn=>{ btn.textContent=t('deleteRecords'); });
-  if(pageMonitor && pageMonitor.style.display!=='none'){
-    buildMonitorView();
-  }
-});
-
-if(languageSelect){
-  languageSelect.addEventListener('change',event=>{
-    setLanguage(event.target.value);
-  });
-}
-
-setLanguage(getCurrentLanguage(),{ persist:false });
 
 onLanguageChange(()=>{
   try{ buildTeacherClassSelects(); }catch(err){ console.warn('Failed to rebuild teacher/class lists after language change.',err); }
