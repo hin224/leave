@@ -365,6 +365,7 @@
       monitorCardNoStudents:"（无）",
       phIdQuick:"输入学号后回车或点加入",
       phNameSearch:"中文/英文/拼音…",
+      ghostPreselect:"预选：{id} / {cn} / {en} / {class}",
       phIdsBulk:"支持逗号、空格、换行分隔",
       phPeriod:"如：第3-4节 或 10:00-11:30",
       phActivity:"如：全州排球赛",
@@ -392,6 +393,8 @@
       errorRangeOrder:"开始日期不能晚于结束日期。",
       conflictWeekend:"所选日期为周末，无课表。",
       conflictNoPeriods:"无法识别时间段，请检查格式。",
+      conflictSummaryTitle:"冲堂课程（已按分组精准匹配）",
+      conflictNoLessons:"所选时间段无对应课程。",
       errorNeedList:"请先加入至少一名学生。",
       errorNeedDate:"请先加入至少一个日期。",
       errorNeedPeriod:"请输入时间段。",
@@ -432,6 +435,8 @@
       monitorGroupLabel:"{group}组",
       monitorPeriodLabel:"第{period}节",
       monitorExportFilename:"监看视图.csv"
+      ,
+      exportRecordsFilename:"外出申请记录_筛选.csv"
     },
     en:{
       pageTitle:"Student Official Leave Application",
@@ -495,6 +500,7 @@
       monitorCardNoStudents:"(None)",
       phIdQuick:"Enter student ID then press Enter or Add",
       phNameSearch:"Chinese/English/Pinyin…",
+      ghostPreselect:"Preview: {id} / {cn} / {en} / {class}",
       phIdsBulk:"Comma, space or newline separated IDs",
       phPeriod:"e.g. Period 3-4 or 10:00-11:30",
       phActivity:"e.g. State volleyball meet",
@@ -522,6 +528,8 @@
       errorRangeOrder:"Start date cannot be after end date.",
       conflictWeekend:"Selected date falls on a weekend; no timetable available.",
       conflictNoPeriods:"Could not parse the time slot. Check the format.",
+      conflictSummaryTitle:"Conflicting lessons (matched by split group)",
+      conflictNoLessons:"No scheduled lessons for the selected slot.",
       errorNeedList:"Add at least one student first.",
       errorNeedDate:"Add at least one date first.",
       errorNeedPeriod:"Enter a time slot.",
@@ -561,7 +569,8 @@
       monitorNoSchedule:"(No timetable)",
       monitorGroupLabel:"Group {group}",
       monitorPeriodLabel:"Period {period}",
-      monitorExportFilename:"monitor-view.csv"
+      monitorExportFilename:"monitor-view.csv",
+      exportRecordsFilename:"leave-records_filtered.csv"
     }
   };
   const LANGUAGE_STORAGE_KEY='leave_app_lang';
@@ -1093,6 +1102,47 @@ function wrapParenthetical(text){
   return currentLang()==='zh' ? `（${text}）` : ` (${text})`;
 }
 
+function joinWithLocale(items, delimiterOptions){
+  const lang=currentLang();
+  if(!Array.isArray(items) || !items.length) return '';
+  const delimiter=(delimiterOptions && delimiterOptions[lang])
+    || (lang==='zh' ? '，' : ', ');
+  return items.join(delimiter);
+}
+
+function formatConflictSlot(slot){
+  if(!slot) return '';
+  const periodLabel=t('monitorPeriodLabel',{ period:slot.period });
+  const subjectDisplay=getSubjectDisplay(slot);
+  const extras=[];
+  const teacherDisplay=getTeacherDisplay(slot);
+  if(teacherDisplay) extras.push(teacherDisplay);
+  if(slot.group){
+    extras.push(t('monitorGroupLabel',{ group:String(slot.group).toUpperCase() }));
+  }
+  const extrasText=extras.length ? wrapParenthetical(joinWithLocale(extras)) : '';
+  const subjectText=subjectDisplay ? ` ${subjectDisplay}` : '';
+  return `${periodLabel}${subjectText}${extrasText}`;
+}
+
+function formatConflictStudentLine(student, lessonsText){
+  if(!student || !lessonsText) return '';
+  const lang=currentLang();
+  const name=lang==='zh'
+    ? firstNonEmpty(student.cn, student.en, student.id)
+    : firstNonEmpty(student.en, student.cn, student.id);
+  const classText=student.class ? (lang==='zh' ? `（${student.class}）` : ` (${student.class})`) : '';
+  const separator=lang==='zh' ? '：' : ': ';
+  return `${name || ''}${classText}${separator}${lessonsText}`;
+}
+
+function getDepartmentDisplay(record){
+  if(!record) return '';
+  const cn=(record.department_cn||'').toString().trim();
+  const en=(record.department_en||'').toString().trim();
+  return currentLang()==='zh' ? (cn || en) : (en || cn);
+}
+
 function getSubjectDisplay(slot){
   if(!slot) return '';
   if(currentLang()==='en'){
@@ -1112,9 +1162,17 @@ function getTeacherDisplay(slot){
 function formatStudentName(record){
   const cn=(record?.name_cn||'').trim();
   const en=(record?.name_en||'').trim();
-  if(cn && en) return `${cn}（${en}）`;
-  if(cn) return cn;
-  if(en) return en;
+  const lang=currentLang();
+  if(cn && en){
+    return lang==='zh' ? `${cn}（${en}）` : `${en} (${cn})`;
+  }
+  if(lang==='zh'){
+    if(cn) return cn;
+    if(en) return en;
+  }else{
+    if(en) return en;
+    if(cn) return cn;
+  }
   if(record?.id){
     return t('studentIdLabel',{ id: record.id });
   }
@@ -1129,7 +1187,7 @@ function formatStudentDisplays(records){
     const display=formatStudentName(rec);
     const reasonRaw=(rec?.activity||'').toString().trim();
     const reason=reasonRaw ? reasonRaw : t('reasonFallback');
-    const deptRaw=(rec?.department_cn||rec?.department_en||'').toString().trim();
+    const deptRaw=getDepartmentDisplay(rec);
     const attrs=[`data-student="${encodeURIComponent(display)}"`,`data-reason="${encodeURIComponent(reason)}"`];
     if(deptRaw){ attrs.push(`data-department="${encodeURIComponent(deptRaw)}"`); }
     return `<span class="student-item" role="button" tabindex="0" ${attrs.join(' ')}>${escapeHtml(display)}</span>`;
@@ -1287,7 +1345,10 @@ function fmtDateYMDLocal(d){
 
 /***** —— 名单 chips —— *****/
 function renderChips(){
-  chips.innerHTML=pickList.map(s=>`<span class="chip">${s.id} ${s.cn}（${s.en}）<button class="btn ghost" data-id="${s.id}">x</button></span>`).join('');
+  chips.innerHTML=pickList.map(s=>{
+    const display=formatStudentName({ name_cn:s.cn, name_en:s.en, id:s.id });
+    return `<span class="chip">${escapeHtml(String(s.id||''))} ${escapeHtml(display)}<button class="btn ghost" data-id="${escapeHtml(String(s.id||''))}">x</button></span>`;
+  }).join('');
   updateConflict();
   updateUnsavedState();
 }
@@ -1342,7 +1403,12 @@ function renderSuggest(list){
   if(highlightIndex<0||highlightIndex>=list.length) highlightIndex=0;
   suggestList.innerHTML=list.map((s,i)=>`<div class="suggest-item ${i===highlightIndex?'active':''}" data-idx="${i}" data-id="${s.id}">${s.id} / ${s.cn} / ${s.en} / ${s.class} ${s.pinyin?(' / '+s.pinyin):''}</div>`).join('');
   suggestList.style.display='block';
-  const g=list[highlightIndex]; if(ghostNameHint){ ghostNameHint.textContent=g?`预选：${g.id} / ${g.cn} / ${g.en} / ${g.class}`:''; }
+    const g=list[highlightIndex];
+    if(ghostNameHint){
+      ghostNameHint.textContent = g
+        ? t('ghostPreselect',{ id:g.id||'', cn:g.cn||'', en:g.en||'', class:g.class||'' })
+        : '';
+    }
 }
 function moveHighlight(delta){ if(!candidates.length) return; highlightIndex=(highlightIndex+delta+candidates.length)%candidates.length; renderSuggest(candidates); }
 nameCn.addEventListener('input',()=>{
@@ -1430,9 +1496,21 @@ function updateConflict(){
     const stu=students.find(x=>x.id===sel.id); if(!stu) return;
     const hits=schedule.filter(x=> x.class===sel.class && x.weekday===wd && ps.includes(String(x.period)));
     const filtered=hits.filter(h=>{ const gkey=pickStudentGroupKey(h.subject); if(isJuniorClass(sel.class) && gkey && h.group){ return (stu[gkey]||'').toLowerCase()===h.group.toLowerCase(); } return true; });
-    if(filtered.length){ const msg=filtered.map(h=>`第${h.period}节 ${h.subject}（${h.teacher}${h.group?('，'+h.group.toUpperCase()+'组'):''}）`).join('，'); lines.push(`${sel.cn}（${sel.class}）：${msg}`); }
+    if(filtered.length){
+      const lessons=joinWithLocale(filtered.map(formatConflictSlot),{ zh:'，', en:'; ' });
+      const line=formatConflictStudentLine(sel, lessons);
+      if(line) lines.push(line);
+    }
   });
-  conflictDiv.innerHTML = lines.length ? `<span class="danger">冲堂课程（已按分组精准匹配）：</span>${lines.join('；')}` : '所选时间段无对应课程。';
+  if(!lines.length){
+    conflictDiv.textContent=t('conflictNoLessons');
+    return;
+  }
+  const prefix=escapeHtml(t('conflictSummaryTitle'));
+  const separator=currentLang()==='zh' ? '：' : ': ';
+  const joiner=currentLang()==='zh' ? '；' : '; ';
+  const body=lines.map(line=>escapeHtml(line)).join(joiner);
+  conflictDiv.innerHTML=`<span class="danger">${prefix}</span>${separator}${body}`;
 }
 periodInp.oninput=updateConflict;
 
@@ -1650,7 +1728,7 @@ async function refreshTable(){
       <td>${r.name_cn||''}</td>
       <td>${r.name_en||''}</td>
       <td>${r.activity||''}</td>
-      <td>${r.department_cn || r.department_en || ''}</td>
+      <td>${getDepartmentDisplay(r)}</td>
       <td><button class="btn ghost" data-idx="${i}" data-date="${r.date}" data-sid="${r.student_id}" data-ts="${r.client_ts||''}">${escapeHtml(t('deleteRecords'))}</button></td>
     </tr>
   `;
@@ -1713,12 +1791,30 @@ tblBody.addEventListener('click', async e=>{
 btnExport.onclick=()=>{
   const list = refreshTable._cache || [];
   if(!list.length){ alert(t('exportEmpty')); return; }
-  const header=['日期','时间段','学号','班级','中文姓名','英文姓名','活动','部门'];
+  const header=[
+    t('thDate'),
+    t('thPeriod'),
+    t('thStudentId'),
+    t('thClass'),
+    t('thNameCn'),
+    t('thNameEn'),
+    t('thActivity'),
+    t('thDepartment')
+  ];
   const lines=[header.join(',')].concat(
-    list.map(r=>[ r.date,r.period,r.student_id,r.class,r.name_cn,r.name_en,r.activity,(r.department_cn||r.department_en||'') ].map(s=>`"${(s||'').toString().replace(/"/g,'""')}"`).join(','))
+    list.map(r=>[
+      r.date,
+      r.period,
+      r.student_id,
+      r.class,
+      r.name_cn,
+      r.name_en,
+      r.activity,
+      getDepartmentDisplay(r)
+    ].map(s=>`"${(s||'').toString().replace(/"/g,'""')}"`).join(','))
   );
   const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='外出申请记录_筛选.csv'; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=t('exportRecordsFilename'); a.click();
 };
 
 btnDeleteSelected.onclick=async ()=>{
@@ -1732,7 +1828,7 @@ btnDeleteSelected.onclick=async ()=>{
     const sid=cb.getAttribute('data-sid');
     const ts=cb.getAttribute('data-ts');
     if(!date || !sid || !ts){
-      console.warn('跳过无法定位的记录', { date, sid, ts });
+      console.warn('[records] Skipping entry without identifiers', { date, sid, ts });
       alert(t('errorMissingDeleteKeys'));
       continue;
     }
@@ -1741,7 +1837,7 @@ btnDeleteSelected.onclick=async ()=>{
       .delete()
       .match({ date, student_id: sid, client_ts: Number(ts) });
     if(error){
-      console.error('删除失败：', error);
+      console.error('[records] Delete failed:', error);
       alert(t('errorDeletePartial'));
       refreshTable();
       return;
@@ -1789,7 +1885,7 @@ async function ensureMonitorDefaults(){
       monitorDefaultInitialized = false;
     }
   } catch (err) {
-    console.error('加载监看默认日期失败：', err);
+    console.error('[monitor] Failed to load default dates:', err);
     monitorDefaultActive = false;
     monitorDefaultInitialized = false;
   }
@@ -2247,6 +2343,7 @@ allTabs.forEach(tab=>{
 });
 
 onLanguageChange(()=>{
+  try{ renderChips(); }catch(err){ console.warn('Failed to re-render chips after language change.',err); }
   try{ buildTeacherClassSelects(); }catch(err){ console.warn('Failed to rebuild teacher/class lists after language change.',err); }
   try{ updateConflict(); }catch(err){ console.warn('Failed to update conflict notice after language change.',err); }
   document.querySelectorAll('#tblBody button[data-idx]').forEach(btn=>{ btn.textContent=t('deleteRecords'); });
