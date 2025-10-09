@@ -281,6 +281,31 @@
   const SUPABASE_URL = "https://ktgrbbzpqfuiprpkbtbk.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0Z3JiYnpwcWZ1aXBycGtidGJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjkzMTQsImV4cCI6MjA3NDkwNTMxNH0.Ik-rT3rqGRx1PUYBd41ZofQf90H0v8vru67dv7ktNvs";
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SUPABASE_TIMEOUT_MS = 10000;
+
+  function withTimeout(promise, { ms = SUPABASE_TIMEOUT_MS, message } = {}){
+    return new Promise((resolve, reject)=>{
+      const timer=setTimeout(()=>{
+        const error=new Error(message || 'Request timed out');
+        error.name='TimeoutError';
+        reject(error);
+      }, ms);
+      promise.then(value=>{
+        clearTimeout(timer);
+        resolve(value);
+      },err=>{
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+  }
+
+  function isTimeoutError(err){
+    if(!err) return false;
+    if(err.name==='TimeoutError') return true;
+    const msg=(err.message||'').toLowerCase();
+    return msg.includes('timeout') || msg.includes('time out');
+  }
 
   /***** —— 2) 全局变量 —— *****/
   const DEPARTMENT_PASSWORDS=[
@@ -378,6 +403,7 @@
       optionAllTeachers:"（全部老师）",
       optionAllClasses:"（全部班级）",
       errorLoadCoreData:"加载学生/课表数据失败，请稍后再试。",
+      errorSupabaseTimeout:"请求超时，请检查网络后再试。",
       studentIdLabel:"学号 {id}",
       unnamedStudent:"未命名学生",
       reasonFallback:"未提供理由",
@@ -513,6 +539,7 @@
       optionAllTeachers:"All teachers",
       optionAllClasses:"All classes",
       errorLoadCoreData:"Failed to load students/timetable. Please try again later.",
+      errorSupabaseTimeout:"Request timed out. Please check your connection and try again.",
       studentIdLabel:"ID {id}",
       unnamedStudent:"Unnamed student",
       reasonFallback:"No reason provided",
@@ -802,10 +829,12 @@
     try {
       resetLookupCaches();
 
-      const { data: stu, error: e1 } = await supabase
-        .from("students")
-        .select("id,name_cn,name_en,pinyin,class,group_en,group_bm,group_math")
-        .order("id");
+      const { data: stu, error: e1 } = await withTimeout(
+        supabase
+          .from("students")
+          .select("id,name_cn,name_en,pinyin,class,group_en,group_bm,group_math")
+          .order("id")
+      );
       if (e1) throw e1;
       students = (stu || []).map(s => ({
         id: s.id,
@@ -818,45 +847,60 @@
         math: (s.group_math || "").toLowerCase(),
       }));
 
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from("subjects")
-        .select("id,name_cn,name_en");
-      if (subjectsError) {
-        console.warn("[Supabase] load subjects failed:", subjectsError);
-      } else {
-        (subjectsData || []).forEach(rememberSubjectRecord);
+      const subjectsResp = await withTimeout(
+        supabase
+          .from("subjects")
+          .select("id,name_cn,name_en")
+      ).catch(err=>({ data: null, error: err }));
+      if(subjectsResp){
+        if(subjectsResp.error){
+          console.warn("[Supabase] load subjects failed:", subjectsResp.error);
+        }else{
+          (subjectsResp.data || []).forEach(rememberSubjectRecord);
+        }
       }
 
-      const { data: subjectMapData, error: subjectMapError } = await supabase
-        .from("subject_map")
-        .select("name_cn,name_en");
-      if (subjectMapError) {
-        console.warn("[Supabase] load subject_map failed:", subjectMapError);
-      } else {
-        (subjectMapData || []).forEach(row => {
-          rememberSubjectName(row?.name_cn, row?.name_en);
-        });
+      const subjectMapResp = await withTimeout(
+        supabase
+          .from("subject_map")
+          .select("name_cn,name_en")
+      ).catch(err=>({ data: null, error: err }));
+      if(subjectMapResp){
+        if(subjectMapResp.error){
+          console.warn("[Supabase] load subject_map failed:", subjectMapResp.error);
+        }else{
+          (subjectMapResp.data || []).forEach(row => {
+            rememberSubjectName(row?.name_cn, row?.name_en);
+          });
+        }
       }
 
-      const { data: teachersData, error: teachersError } = await supabase
-        .from("teachers")
-        .select("id,name_cn,name_en");
-      if (teachersError) {
-        console.warn("[Supabase] load teachers failed:", teachersError);
-      } else {
-        (teachersData || []).forEach(rememberTeacherRecord);
+      const teachersResp = await withTimeout(
+        supabase
+          .from("teachers")
+          .select("id,name_cn,name_en")
+      ).catch(err=>({ data: null, error: err }));
+      if(teachersResp){
+        if(teachersResp.error){
+          console.warn("[Supabase] load teachers failed:", teachersResp.error);
+        }else{
+          (teachersResp.data || []).forEach(rememberTeacherRecord);
+        }
       }
 
       const linkMap=new Map();
-      const { data: linksData, error: linksError } = await supabase
-        .from("timetable_links")
-        .select("timetable_id,subject_id,teacher_id,subjects(name_cn,name_en),teachers(name_cn,name_en)");
-      if (linksError) {
-        console.warn("[Supabase] load timetable_links failed:", linksError);
-      } else {
-        (linksData || []).forEach(link => {
-          const subjectCnRaw = link?.subjects?.name_cn;
-          const subjectEnRaw = link?.subjects?.name_en;
+      const linksResp = await withTimeout(
+        supabase
+          .from("timetable_links")
+          .select("timetable_id,subject_id,teacher_id,subjects(name_cn,name_en),teachers(name_cn,name_en)")
+      ).catch(err=>({ data: null, error: err }));
+      if(linksResp){
+        if(linksResp.error){
+          console.warn("[Supabase] load timetable_links failed:", linksResp.error);
+        }else{
+          (linksResp.data || []).forEach(link => {
+            const subjectCnRaw = link?.subjects?.name_cn;
+            const subjectEnRaw = link?.subjects?.name_en;
           const teacherCnRaw = link?.teachers?.name_cn;
           const teacherEnRaw = link?.teachers?.name_en;
           rememberSubjectName(subjectCnRaw, subjectEnRaw);
@@ -874,14 +918,17 @@
             teacher: (teacherCn || teacherEn) ? { cn: teacherCn, en: teacherEn } : null,
           });
         });
+        }
       }
 
-      const { data: tt, error: e2 } = await supabase
-        .from("timetable")
-        .select("id,class,weekday,period,subject,teacher,group_tag,subject_id,teacher_id")
-        .order("class", { ascending: true })
-        .order("weekday", { ascending: true })
-        .order("period", { ascending: true });
+      const { data: tt, error: e2 } = await withTimeout(
+        supabase
+          .from("timetable")
+          .select("id,class,weekday,period,subject,teacher,group_tag,subject_id,teacher_id")
+          .order("class", { ascending: true })
+          .order("weekday", { ascending: true })
+          .order("period", { ascending: true })
+      );
       if (e2) throw e2;
 
       schedule = (tt || []).map(x => {
@@ -943,7 +990,8 @@
       console.log(`[Supabase] loaded students=${students.length}, timetable=${schedule.length}, subjects=${subjectsById.size}, teachers=${teachersById.size}, links=${linkMap.size}`);
     } catch (err) {
       console.error("Load from Supabase failed:", err);
-      alert(t('errorLoadCoreData'));
+      const key=isTimeoutError(err)?'errorSupabaseTimeout':'errorLoadCoreData';
+      alert(t(key));
     }
   }
   document.addEventListener("DOMContentLoaded", loadCoreDataFromSupabase);
@@ -1739,12 +1787,16 @@ async function saveCurrentApplication(options={}){
     }
 
     const rowsForInsert=rows.map(r=>({ ...r }));
-    let { error } = await supabase.from('applications_flat').insert(rowsForInsert);
+    let { error } = await withTimeout(
+      supabase.from('applications_flat').insert(rowsForInsert)
+    );
     if(error){
       const msg=(error.message||'').toLowerCase();
       if(msg.includes('column') && msg.includes('department')){
         const stripped=rowsForInsert.map(({ department_cn, department_en, department_code, ...rest })=>rest);
-        const retry=await supabase.from('applications_flat').insert(stripped);
+        const retry=await withTimeout(
+          supabase.from('applications_flat').insert(stripped)
+        );
         if(retry.error) throw retry.error;
       }else{
         throw error;
@@ -1760,7 +1812,10 @@ async function saveCurrentApplication(options={}){
     return { text:t, saved:true };
   }catch(e){
     console.error('Save to Supabase failed:', e);
-    if(!silent) alert(t('saveFailed'));
+    if(!silent){
+      const key=isTimeoutError(e)?'errorSupabaseTimeout':'saveFailed';
+      alert(t(key));
+    }
     return null;
   }
 }
@@ -1811,12 +1866,24 @@ async function fetchFilteredRecordsFromCloud(){
   };
   let q = buildQuery(columnsFull);
 
-  let { data, error } = await q;
+  let data, error;
+  try{
+    ({ data, error } = await withTimeout(q));
+  }catch(err){
+    console.error('[records] Fetch failed:', err);
+    alert(t(isTimeoutError(err)?'errorSupabaseTimeout':'errorFetchRecords'));
+    return [];
+  }
   if (error){
     const msg=(error.message||'').toLowerCase();
     if(msg.includes('column') && msg.includes('department')){
-      q = buildQuery(columnsFallback);
-      ({ data, error } = await q);
+      try{
+        ({ data, error } = await withTimeout(buildQuery(columnsFallback)));
+      }catch(err){
+        console.error('[records] Fallback fetch failed:', err);
+        alert(t(isTimeoutError(err)?'errorSupabaseTimeout':'errorFetchRecords'));
+        return [];
+      }
     }
   }
   if (error){ console.error(error); alert(t('errorFetchRecords')); return []; }
@@ -1951,13 +2018,22 @@ btnDeleteSelected.onclick=async ()=>{
       alert(t('errorMissingDeleteKeys'));
       continue;
     }
-    const { error } = await supabase
-      .from('applications_flat')
-      .delete()
-      .match({ date, student_id: sid, client_ts: Number(ts) });
-    if(error){
-      console.error('[records] Delete failed:', error);
-      alert(t('errorDeletePartial'));
+    try{
+      const { error } = await withTimeout(
+        supabase
+          .from('applications_flat')
+          .delete()
+          .match({ date, student_id: sid, client_ts: Number(ts) })
+      );
+      if(error){
+        console.error('[records] Delete failed:', error);
+        alert(t('errorDeletePartial'));
+        refreshTable();
+        return;
+      }
+    }catch(err){
+      console.error('[records] Delete failed:', err);
+      alert(t(isTimeoutError(err)?'errorSupabaseTimeout':'errorDeletePartial'));
       refreshTable();
       return;
     }
@@ -1969,6 +2045,7 @@ btnDeleteSelected.onclick=async ()=>{
 
 /***** —— 监看（云端） —— */
 let monCloudCache = [];  // {date, period, student_id, class, name_cn, name_en, activity, department_*, client_ts}
+let lastMonitorError = null;
 async function ensureMonitorDefaults(){
   const hasDates = monDates.length>0;
   if(monitorDefaultInitialized && hasDates){
@@ -1986,10 +2063,12 @@ async function ensureMonitorDefaults(){
   }
 
   try {
-    const { data, error } = await supabase
-      .from('applications_flat')
-      .select('date', { distinct: true })
-      .order('date', { ascending: true });
+    const { data, error } = await withTimeout(
+      supabase
+        .from('applications_flat')
+        .select('date', { distinct: true })
+        .order('date', { ascending: true })
+    );
     if (error) throw error;
     const list = Array.from(new Set((data||[]).map(item => item.date).filter(Boolean))).sort();
     const todayStr = new Date().toISOString().slice(0,10);
@@ -2008,8 +2087,10 @@ async function ensureMonitorDefaults(){
       monitorDefaultActive = false;
       monitorDefaultInitialized = true;
     }
+    lastMonitorError = null;
   } catch (err) {
     console.error('[monitor] Failed to load default dates:', err);
+    lastMonitorError = err;
     monitorDefaultActive = false;
     monitorDefaultInitialized = false;
   }
@@ -2023,19 +2104,44 @@ async function loadMonitorRecordsFromCloud(){
     .from('applications_flat')
     .select(columnsFull)
     .in('date', monDates);
-  let { data, error } = await query;
+  let data, error;
+  try{
+    ({ data, error } = await withTimeout(query));
+  }catch(err){
+    console.error('[monitor] Load records failed:', err);
+    lastMonitorError = err;
+    alert(t(isTimeoutError(err)?'errorSupabaseTimeout':'errorMonitorFetch'));
+    monCloudCache = [];
+    return;
+  }
   if(error){
     const msg=(error.message||'').toLowerCase();
     if(msg.includes('column') && msg.includes('department')){
-      query = supabase
-        .from('applications_flat')
-        .select(columnsFallback)
-        .in('date', monDates);
-      ({ data, error } = await query);
+      try{
+        ({ data, error } = await withTimeout(
+          supabase
+            .from('applications_flat')
+            .select(columnsFallback)
+            .in('date', monDates)
+        ));
+      }catch(err){
+        console.error('[monitor] Fallback load records failed:', err);
+        lastMonitorError = err;
+        alert(t(isTimeoutError(err)?'errorSupabaseTimeout':'errorMonitorFetch'));
+        monCloudCache = [];
+        return;
+      }
     }
   }
-  if(error){ console.error(error); alert(t('errorMonitorFetch')); monCloudCache = []; return; }
+  if(error){
+    console.error(error);
+    lastMonitorError = error;
+    alert(t('errorMonitorFetch'));
+    monCloudCache = [];
+    return;
+  }
   monCloudCache = data || [];
+  lastMonitorError = null;
 }
 function getAllRecords(){ // 监看内部依赖的统一取数
   return monCloudCache.map(r=>({
@@ -2140,11 +2246,21 @@ async function buildMonitorView(){
   }
   monitorDefaultActive = monitorDefaultActive && monMode.value==='timetable';
   if(!monDates.length){
+    if(lastMonitorError){
+      const key=isTimeoutError(lastMonitorError)?'errorSupabaseTimeout':'errorMonitorFetch';
+      monResult.innerHTML=`<div class="muted">${escapeHtml(t(key))}</div>`;
+      return;
+    }
     monResult.innerHTML=`<div class="muted">${escapeHtml(t('errorMonitorNeedDate'))}</div>`;
     return;
   }
 
   await loadMonitorRecordsFromCloud();
+  if(lastMonitorError){
+    const key=isTimeoutError(lastMonitorError)?'errorSupabaseTimeout':'errorMonitorFetch';
+    monResult.innerHTML=`<div class="muted">${escapeHtml(t(key))}</div>`;
+    return;
+  }
 
   if(monMode.value==='timetable'){ buildMonitorTimetable(); return; }
 
