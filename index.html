@@ -690,17 +690,25 @@
   const carr = Array.from(new Set(schedule.map(x=>x.class).filter(Boolean))).sort();
   const tarr = Array.from(tset).sort();
 
-  const curT = monTeacher.value;
+  const storedTeacherPref = monitorTeacherPreference ?? '';
+  const currentTeacher = monTeacher.value ?? '';
+  const preferredTeacher = storedTeacherPref || currentTeacher || '';
   monTeacher.innerHTML =
     `<option value="">${escapeHtml(t('optionAllTeachers'))}</option>` +
     tarr.map(t=>`<option>${escapeHtml(t)}</option>`).join('');
-  if (tarr.includes(curT)) monTeacher.value = curT;
+  const teacherIsAvailable = preferredTeacher && tarr.includes(preferredTeacher);
+  monTeacher.value = teacherIsAvailable ? preferredTeacher : '';
+  monitorTeacherPreference = teacherIsAvailable ? preferredTeacher : storedTeacherPref;
 
-  const curC = monClass.value;
+  const storedClassPref = monitorClassPreference ?? '';
+  const currentClass = monClass.value ?? '';
+  const preferredClass = storedClassPref || currentClass || '';
   monClass.innerHTML =
     `<option value="">${escapeHtml(t('optionAllClasses'))}</option>` +
     carr.map(c=>`<option>${escapeHtml(c)}</option>`).join('');
-  if (carr.includes(curC)) monClass.value = curC;
+  const classIsAvailable = preferredClass && carr.includes(preferredClass);
+  monClass.value = classIsAvailable ? preferredClass : '';
+  monitorClassPreference = classIsAvailable ? preferredClass : storedClassPref;
 }
 
   const normalizeLookupKey=value=>{
@@ -957,6 +965,11 @@ const nameCn=document.getElementById('nameCn');
 const suggestList=document.getElementById('suggestList');
 const ghostNameHint=document.getElementById('ghostNameHint');
 
+const AUTO_ADD_APPLY_COOKIE='leave_auto_add_apply';
+const AUTO_ADD_MON_COOKIE='leave_auto_add_monitor';
+const MONITOR_TEACHER_COOKIE='leave_monitor_teacher';
+const MONITOR_CLASS_COOKIE='leave_monitor_class';
+
 const applyDatePicker=document.getElementById('applyDatePicker');
 const autoAddDate=document.getElementById('autoAddDate');
 const applyDatePickerStart=document.getElementById('applyDatePickerStart');
@@ -1012,6 +1025,21 @@ const monResult=document.getElementById('monResult');
 const monReasonPanel=document.getElementById('monReasonPanel');
 const btnMonRefresh=document.getElementById('btnMonRefresh');
 const btnMonExport=document.getElementById('btnMonExport');
+
+let monitorTeacherPreference=null;
+let monitorClassPreference=null;
+
+const savedAutoAddApply=getBooleanCookie(AUTO_ADD_APPLY_COOKIE);
+if(savedAutoAddApply!==null && autoAddDate){
+  autoAddDate.checked=savedAutoAddApply;
+}
+const savedAutoAddMon=getBooleanCookie(AUTO_ADD_MON_COOKIE);
+if(savedAutoAddMon!==null && autoAddMonDate){
+  autoAddMonDate.checked=savedAutoAddMon;
+}
+
+monitorTeacherPreference=getStringCookie(MONITOR_TEACHER_COOKIE);
+monitorClassPreference=getStringCookie(MONITOR_CLASS_COOKIE);
 
 // 时间常量
 const PERIODS=[null,
@@ -1397,28 +1425,69 @@ activityInp.addEventListener('input',handleApplyFieldInput);
 
 /***** —— 模糊搜索 —— *****/
 let candidates=[]; let highlightIndex=-1;
+
+function updateGhostNameHint(){
+  if(!ghostNameHint) return;
+  const item=candidates[highlightIndex];
+  ghostNameHint.textContent=item
+    ? t('ghostPreselect',{ id:item.id||'', cn:item.cn||'', en:item.en||'', class:item.class||'' })
+    : '';
+}
+
+function ensureActiveItemVisible(){
+  if(!suggestList) return;
+  const active=suggestList.querySelector('.suggest-item.active');
+  if(!active) return;
+  const top=active.offsetTop;
+  const bottom=top+active.offsetHeight;
+  const viewTop=suggestList.scrollTop;
+  const viewBottom=viewTop+suggestList.clientHeight;
+  if(top<viewTop){
+    suggestList.scrollTop=top;
+  }else if(bottom>viewBottom){
+    suggestList.scrollTop=bottom-suggestList.clientHeight;
+  }
+}
+
+function applyHighlightToSuggestItems(){
+  if(!suggestList) return;
+  const items=suggestList.querySelectorAll('.suggest-item');
+  items.forEach((el,idx)=>{
+    if(idx===highlightIndex){
+      el.classList.add('active');
+    }else{
+      el.classList.remove('active');
+    }
+  });
+  updateGhostNameHint();
+  ensureActiveItemVisible();
+}
+
 function renderSuggest(list){
   candidates=list;
   if(!list.length){
     suggestList.style.display='none';
     highlightIndex=-1;
-    if(ghostNameHint) ghostNameHint.textContent='';
+    updateGhostNameHint();
+    suggestList.scrollTop=0;
     return;
   }
   if(highlightIndex<0||highlightIndex>=list.length) highlightIndex=0;
-  suggestList.innerHTML=list.map((s,i)=>`<div class="suggest-item ${i===highlightIndex?'active':''}" data-idx="${i}" data-id="${s.id}">${s.id} / ${s.cn} / ${s.en} / ${s.class} ${s.pinyin?(' / '+s.pinyin):''}</div>`).join('');
+  suggestList.innerHTML=list.map((s,i)=>`<div class="suggest-item" data-idx="${i}" data-id="${s.id}">${s.id} / ${s.cn} / ${s.en} / ${s.class} ${s.pinyin?(' / '+s.pinyin):''}</div>`).join('');
   suggestList.style.display='block';
-  const activeItem=suggestList.querySelector('.suggest-item.active');
-  if(activeItem){ activeItem.scrollIntoView({block:'nearest'}); }
-  const g=list[highlightIndex];
-  if(ghostNameHint){
-    ghostNameHint.textContent = g
-      ? t('ghostPreselect',{ id:g.id||'', cn:g.cn||'', en:g.en||'', class=g.class||'' })
-      : '';
-  }
+  applyHighlightToSuggestItems();
 }
 
-function moveHighlight(delta){ if(!candidates.length) return; highlightIndex=(highlightIndex+delta+candidates.length)%candidates.length; renderSuggest(candidates); }
+function moveHighlight(delta){
+  if(!candidates.length) return;
+  if(highlightIndex<0){
+    highlightIndex=delta>=0?0:candidates.length-1;
+  }else{
+    highlightIndex=(highlightIndex+delta+candidates.length)%candidates.length;
+  }
+  applyHighlightToSuggestItems();
+}
+
 nameCn.addEventListener('input',()=>{
   const q=trimLower(nameCn.value); if(!q){ renderSuggest([]); return; }
   const list=students.filter(s=>{ const hay=[s.cn,s.en,s.pinyin].map(trimLower).join(' '); return hay.includes(q) || q.split(/\s+/).every(part=>hay.includes(part)); }).slice(0,30);
@@ -1457,6 +1526,12 @@ btnAddApplyDate.onclick=()=>{
   }
   applyDatesUI.render();
 };
+
+if(autoAddDate){
+  autoAddDate.addEventListener('change',()=>{
+    setBooleanPreferenceCookie(AUTO_ADD_APPLY_COOKIE, !!autoAddDate.checked);
+  });
+}
 
 applyDatePicker.addEventListener('change',()=>{
   if(autoAddDate && autoAddDate.checked){
@@ -2259,6 +2334,11 @@ document.getElementById('btnAddMonDate').onclick=()=>{
   monDatesUI.render();
   buildMonitorView();
 };
+if(autoAddMonDate){
+  autoAddMonDate.addEventListener('change',()=>{
+    setBooleanPreferenceCookie(AUTO_ADD_MON_COOKIE, !!autoAddMonDate.checked);
+  });
+}
 monDatePicker.addEventListener('change',()=>{
   if(autoAddMonDate && autoAddMonDate.checked){
     const d=monDatePicker.value;
@@ -2280,8 +2360,18 @@ btnAddMonRange.onclick=()=>{
 };
 monDateChips.addEventListener('click',e=>{ const b=e.target.closest('button[data-d]'); if(!b) return; const d=b.getAttribute('data-d'); markMonitorModified(); monDates=monDates.filter(x=>x!==d); monDatesUI.render(); buildMonitorView(); });
 
-monTeacher.addEventListener('change',()=>{ markMonitorModified(); buildMonitorView(); });
-monClass.addEventListener('change',()=>{ markMonitorModified(); buildMonitorView(); });
+monTeacher.addEventListener('change',()=>{
+  markMonitorModified();
+  monitorTeacherPreference = monTeacher.value || '';
+  setStringPreferenceCookie(MONITOR_TEACHER_COOKIE, monitorTeacherPreference);
+  buildMonitorView();
+});
+monClass.addEventListener('change',()=>{
+  markMonitorModified();
+  monitorClassPreference = monClass.value || '';
+  setStringPreferenceCookie(MONITOR_CLASS_COOKIE, monitorClassPreference);
+  buildMonitorView();
+});
 monMode.addEventListener('change',()=>{ markMonitorModified(); buildMonitorView(); });
 btnMonRefresh.onclick=buildMonitorView;
 
@@ -2349,6 +2439,53 @@ const pageMonitor=document.getElementById('page-monitor');
 const TAB_COOKIE_NAME='leave_active_tab';
 const TAB_COOKIE_MAX_AGE=60*60*24*30; // 30 days
 
+function readCookieValue(name){
+  if(typeof document==='undefined' || !document.cookie) return null;
+  const pairs=document.cookie.split(';');
+  for(const pair of pairs){
+    const [cookieName,...rest]=pair.trim().split('=');
+    if(cookieName===name){
+      return rest.join('=');
+    }
+  }
+  return null;
+}
+
+function setBooleanPreferenceCookie(name,value){
+  if(typeof document==='undefined') return;
+  try{
+    const raw=value?'1':'0';
+    document.cookie=`${name}=${raw}; max-age=${TAB_COOKIE_MAX_AGE}; path=/; samesite=lax`;
+  }catch(err){ /* ignore cookie errors */ }
+}
+
+function setStringPreferenceCookie(name,value){
+  if(typeof document==='undefined') return;
+  try{
+    const normalized=value==null?'':String(value);
+    const encoded=encodeURIComponent(normalized);
+    document.cookie=`${name}=${encoded}; max-age=${TAB_COOKIE_MAX_AGE}; path=/; samesite=lax`;
+  }catch(err){ /* ignore cookie errors */ }
+}
+
+function getBooleanCookie(name){
+  const raw=readCookieValue(name);
+  if(raw==null) return null;
+  if(raw==='1') return true;
+  if(raw==='0') return false;
+  return null;
+}
+
+function getStringCookie(name){
+  const raw=readCookieValue(name);
+  if(raw==null) return null;
+  try{
+    return decodeURIComponent(raw);
+  }catch(err){
+    return raw;
+  }
+}
+
 function normalizeTabKey(value){
   if(!value) return '';
   const key=String(value).toLowerCase();
@@ -2365,17 +2502,10 @@ function setTabCookie(value){
 }
 
 function getTabCookie(){
-  if(typeof document==='undefined' || !document.cookie) return '';
-  const pairs=document.cookie.split(';');
-  for(const pair of pairs){
-    const [name,...rest]=pair.trim().split('=');
-    if(name===TAB_COOKIE_NAME){
-      const value=rest.join('=');
-      try{ return normalizeTabKey(decodeURIComponent(value)); }
-      catch(err){ return normalizeTabKey(value); }
-    }
-  }
-  return '';
+  const value=readCookieValue(TAB_COOKIE_NAME);
+  if(!value) return '';
+  try{ return normalizeTabKey(decodeURIComponent(value)); }
+  catch(err){ return normalizeTabKey(value); }
 }
 
 async function setActiveTab(which){
