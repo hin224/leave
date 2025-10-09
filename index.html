@@ -20,6 +20,9 @@
   .lang-switch{display:flex;align-items:center;gap:8px;color:#52616b;font-size:14px}
   .lang-switch select{min-width:140px;padding:6px 10px;border-radius:999px;border:1px solid #cfd8e3;background:#fff;font-size:14px}
   .app-main{display:flex;flex-direction:column;gap:18px}
+  .tab-page{display:block}
+  body.js-tabs-ready .tab-page{display:none}
+  body.js-tabs-ready .tab-page.is-active{display:block}
   .card{border:1px solid #e0e7ff;border-radius:16px;padding:18px;margin-bottom:0;background:#fff;box-shadow:0 18px 36px -24px rgba(15,23,42,.32)}
   .card + .card{margin-top:16px}
   label{display:inline-block;min-width:88px}
@@ -99,7 +102,7 @@
 
   <main class="app-main">
   <!-- 申请页 -->
-  <section id="page-apply" style="display:none;" aria-labelledby="tab-apply" role="tabpanel">
+  <section id="page-apply" class="tab-page" aria-labelledby="tab-apply" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -182,7 +185,7 @@
   </section>
 
   <!-- 记录/查看页 -->
-  <section id="page-records" style="display:none;" aria-labelledby="tab-records" role="tabpanel">
+  <section id="page-records" class="tab-page" aria-labelledby="tab-records" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -225,7 +228,7 @@
   </section>
 
   <!-- 监看页 -->
-  <section id="page-monitor" aria-labelledby="tab-monitor" role="tabpanel">
+  <section id="page-monitor" class="tab-page" aria-labelledby="tab-monitor" role="tabpanel">
   <div class="card">
     <div class="row">
       <div class="grow">
@@ -2435,6 +2438,7 @@ const tabRecords=document.getElementById('tab-records');
 const pageApply=document.getElementById('page-apply');
 const pageRecords=document.getElementById('page-records');
 const pageMonitor=document.getElementById('page-monitor');
+const tabPages=[pageApply,pageRecords,pageMonitor];
 
 const TAB_COOKIE_NAME='leave_active_tab';
 const TAB_COOKIE_MAX_AGE=60*60*24*30; // 30 days
@@ -2514,14 +2518,14 @@ async function setActiveTab(which){
     t.setAttribute('aria-selected','false');
     t.tabIndex=-1;
   });
-  [pageApply,pageRecords,pageMonitor].forEach(p=>p.style.display='none');
-  if(which==='apply'){ tabApply.classList.add('active'); tabApply.setAttribute('aria-selected','true'); tabApply.tabIndex=0; pageApply.style.display='block'; }
-  if(which==='records'){ tabRecords.classList.add('active'); tabRecords.setAttribute('aria-selected','true'); tabRecords.tabIndex=0; pageRecords.style.display='block'; refreshTable(); }
-  if(which==='monitor'){
+  tabPages.forEach(p=>{ if(p){ p.classList.remove('is-active'); } });
+  if(which==='apply' && pageApply){ tabApply.classList.add('active'); tabApply.setAttribute('aria-selected','true'); tabApply.tabIndex=0; pageApply.classList.add('is-active'); }
+  if(which==='records' && pageRecords){ tabRecords.classList.add('active'); tabRecords.setAttribute('aria-selected','true'); tabRecords.tabIndex=0; pageRecords.classList.add('is-active'); refreshTable(); }
+  if(which==='monitor' && pageMonitor){
     tabMonitor.classList.add('active');
     tabMonitor.setAttribute('aria-selected','true');
     tabMonitor.tabIndex=0;
-    pageMonitor.style.display='block';
+    pageMonitor.classList.add('is-active');
     buildTeacherClassSelects();
     await ensureMonitorDefaults();
     if(monMode.value!=='timetable' && !monitorUserModified){
@@ -2556,7 +2560,7 @@ onLanguageChange(()=>{
   try{ buildTeacherClassSelects(); }catch(err){ console.warn('Failed to rebuild teacher/class lists after language change.',err); }
   try{ updateConflict(); }catch(err){ console.warn('Failed to update conflict notice after language change.',err); }
   document.querySelectorAll('#tblBody button[data-idx]').forEach(btn=>{ btn.textContent=t('deleteRecords'); });
-  if(pageMonitor && pageMonitor.style.display!=='none'){
+  if(pageMonitor && pageMonitor.classList.contains('is-active')){
     buildMonitorView();
   }
 });
@@ -2568,7 +2572,13 @@ if(languageSelect){
 }
 
 const initialTab=getTabCookie() || 'monitor';
-setActiveTab(initialTab);
+setActiveTab(initialTab)
+  .catch(err=>console.error('Failed to activate initial tab',err))
+  .finally(()=>{
+    if(document.body){
+      document.body.classList.add('js-tabs-ready');
+    }
+  });
 setLanguage(getCurrentLanguage(),{ persist:false });
 
 // Supabase 核心数据在模块顶部通过 DOMContentLoaded 注册加载
