@@ -690,35 +690,25 @@
   const carr = Array.from(new Set(schedule.map(x=>x.class).filter(Boolean))).sort();
   const tarr = Array.from(tset).sort();
 
-  const prevPrefTeacher = monitorTeacherPreference;
-  const curT = monTeacher.value;
+  const storedTeacherPref = monitorTeacherPreference ?? '';
+  const currentTeacher = monTeacher.value ?? '';
+  const preferredTeacher = storedTeacherPref || currentTeacher || '';
   monTeacher.innerHTML =
     `<option value="">${escapeHtml(t('optionAllTeachers'))}</option>` +
     tarr.map(t=>`<option>${escapeHtml(t)}</option>`).join('');
-  let nextTeacher = (monitorTeacherPreference ?? curT ?? '');
-  if(nextTeacher && !tarr.includes(nextTeacher)){
-    nextTeacher='';
-  }
-  monTeacher.value = nextTeacher;
-  monitorTeacherPreference = monTeacher.value;
-  if(prevPrefTeacher!==monitorTeacherPreference && prevPrefTeacher!==null){
-    setStringPreferenceCookie(MONITOR_TEACHER_COOKIE, monitorTeacherPreference);
-  }
+  const teacherIsAvailable = preferredTeacher && tarr.includes(preferredTeacher);
+  monTeacher.value = teacherIsAvailable ? preferredTeacher : '';
+  monitorTeacherPreference = teacherIsAvailable ? preferredTeacher : storedTeacherPref;
 
-  const prevPrefClass = monitorClassPreference;
-  const curC = monClass.value;
+  const storedClassPref = monitorClassPreference ?? '';
+  const currentClass = monClass.value ?? '';
+  const preferredClass = storedClassPref || currentClass || '';
   monClass.innerHTML =
     `<option value="">${escapeHtml(t('optionAllClasses'))}</option>` +
     carr.map(c=>`<option>${escapeHtml(c)}</option>`).join('');
-  let nextClass = (monitorClassPreference ?? curC ?? '');
-  if(nextClass && !carr.includes(nextClass)){
-    nextClass='';
-  }
-  monClass.value = nextClass;
-  monitorClassPreference = monClass.value;
-  if(prevPrefClass!==monitorClassPreference && prevPrefClass!==null){
-    setStringPreferenceCookie(MONITOR_CLASS_COOKIE, monitorClassPreference);
-  }
+  const classIsAvailable = preferredClass && carr.includes(preferredClass);
+  monClass.value = classIsAvailable ? preferredClass : '';
+  monitorClassPreference = classIsAvailable ? preferredClass : storedClassPref;
 }
 
   const normalizeLookupKey=value=>{
