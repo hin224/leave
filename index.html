@@ -1399,17 +1399,25 @@ activityInp.addEventListener('input',handleApplyFieldInput);
 let candidates=[]; let highlightIndex=-1;
 function renderSuggest(list){
   candidates=list;
-  if(!list.length){ suggestList.style.display='none'; highlightIndex=-1; if(ghostNameHint) ghostNameHint.textContent=''; return; }
+  if(!list.length){
+    suggestList.style.display='none';
+    highlightIndex=-1;
+    if(ghostNameHint) ghostNameHint.textContent='';
+    return;
+  }
   if(highlightIndex<0||highlightIndex>=list.length) highlightIndex=0;
   suggestList.innerHTML=list.map((s,i)=>`<div class="suggest-item ${i===highlightIndex?'active':''}" data-idx="${i}" data-id="${s.id}">${s.id} / ${s.cn} / ${s.en} / ${s.class} ${s.pinyin?(' / '+s.pinyin):''}</div>`).join('');
   suggestList.style.display='block';
-    const g=list[highlightIndex];
-    if(ghostNameHint){
-      ghostNameHint.textContent = g
-        ? t('ghostPreselect',{ id:g.id||'', cn:g.cn||'', en:g.en||'', class:g.class||'' })
-        : '';
-    }
+  const activeItem=suggestList.querySelector('.suggest-item.active');
+  if(activeItem){ activeItem.scrollIntoView({block:'nearest'}); }
+  const g=list[highlightIndex];
+  if(ghostNameHint){
+    ghostNameHint.textContent = g
+      ? t('ghostPreselect',{ id:g.id||'', cn:g.cn||'', en:g.en||'', class=g.class||'' })
+      : '';
+  }
 }
+
 function moveHighlight(delta){ if(!candidates.length) return; highlightIndex=(highlightIndex+delta+candidates.length)%candidates.length; renderSuggest(candidates); }
 nameCn.addEventListener('input',()=>{
   const q=trimLower(nameCn.value); if(!q){ renderSuggest([]); return; }
