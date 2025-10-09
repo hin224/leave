@@ -328,6 +328,14 @@
   let monitorUserModified=false;
   let deleteAuthCache=null; // { dept, ts }
   const DELETE_AUTH_CACHE_MS=10*60*1000; // 10 分钟内复用验证
+  let coreDataLoadStarted=false;
+  let resolveCoreDataLoadPromise;
+  let rejectCoreDataLoadPromise;
+  const coreDataLoadPromise=new Promise((resolve,reject)=>{
+    resolveCoreDataLoadPromise=resolve;
+    rejectCoreDataLoadPromise=reject;
+  });
+  coreDataLoadPromise.catch(()=>{});
 
   /***** —— 语言与国际化 —— *****/
   const translations={
@@ -988,13 +996,24 @@
 
       buildTeacherClassSelects();
       console.log(`[Supabase] loaded students=${students.length}, timetable=${schedule.length}, subjects=${subjectsById.size}, teachers=${teachersById.size}, links=${linkMap.size}`);
+      if(resolveCoreDataLoadPromise){
+        resolveCoreDataLoadPromise(true);
+        resolveCoreDataLoadPromise=null;
+        rejectCoreDataLoadPromise=null;
+      }
+      return true;
     } catch (err) {
       console.error("Load from Supabase failed:", err);
       const key=isTimeoutError(err)?'errorSupabaseTimeout':'errorLoadCoreData';
       alert(t(key));
+      if(rejectCoreDataLoadPromise){
+        rejectCoreDataLoadPromise(err);
+        resolveCoreDataLoadPromise=null;
+        rejectCoreDataLoadPromise=null;
+      }
+      throw err;
     }
   }
-  document.addEventListener("DOMContentLoaded", loadCoreDataFromSupabase);
 
   /***** —— 4) 下面粘贴你现有的业务代码（DOM 绑定、工具函数、监看/记录逻辑等）—— *****/
   // —— 这里开始就是你上一段第一个 <script type="module"> 里的全部其余代码 —— 
@@ -2044,6 +2063,19 @@ btnDeleteSelected.onclick=async ()=>{
 };
 
 /***** —— 监看（云端） —— */
+function ensureCoreDataLoad(){
+  if(coreDataLoadStarted) return;
+  coreDataLoadStarted=true;
+  const trigger=()=>{
+    loadCoreDataFromSupabase().catch(()=>{/* error 已在函数内部提示 */});
+  };
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',trigger,{ once:true });
+  }else{
+    trigger();
+  }
+}
+
 let monCloudCache = [];  // {date, period, student_id, class, name_cn, name_en, activity, department_*, client_ts}
 let lastMonitorError = null;
 async function ensureMonitorDefaults(){
@@ -2241,6 +2273,14 @@ function buildMonitorRowsForDate(d){
 async function buildMonitorView(){
   hideReasonPanel();
   monResult.innerHTML='';
+  ensureCoreDataLoad();
+  if(coreDataLoadPromise){
+    try{
+      await coreDataLoadPromise;
+    }catch(err){
+      console.warn('[monitor] proceeding without core timetable data',err);
+    }
+  }
   if(!monitorDefaultInitialized || !monDates.length){
     await ensureMonitorDefaults();
   }
@@ -2556,6 +2596,8 @@ const pageRecords=document.getElementById('page-records');
 const pageMonitor=document.getElementById('page-monitor');
 const tabPages=[pageApply,pageRecords,pageMonitor];
 
+ensureCoreDataLoad();
+
 const TAB_COOKIE_NAME='leave_active_tab';
 const TAB_COOKIE_MAX_AGE=60*60*24*30; // 30 days
 
@@ -2697,7 +2739,7 @@ setActiveTab(initialTab)
   });
 setLanguage(getCurrentLanguage(),{ persist:false });
 
-// Supabase 核心数据在模块顶部通过 DOMContentLoaded 注册加载
+// Supabase 核心数据在 ensureCoreDataLoad() 中统一触发加载
 </script>
 
 </body>
